@@ -1,0 +1,17 @@
+node_modules/
+coverage/
+.audit/
+*.tgz
+.DS_Store
+
+# Local-only artifacts.
+.pnpm-store/
+debug.log
+pnpm-lock.yaml.bak
+
+# Not ignored: lib/ is committed on purpose.
+# DeepSeek Harness loads a plugin's built entry (`main: ./lib/index.js`) and never
+# builds it, so a GitHub-based install only works when the build output is in the
+# repository. A linked checkout keeps its own node_modules; `pnpm pack`'s `prepack`
+# rebuilds lib/ for registry and tarball installs. Run `pnpm build` before committing
+# changes to src/.
