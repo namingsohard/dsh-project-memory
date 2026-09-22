@@ -1,70 +1,139 @@
 # dsh-project-memory
 
-Persistent workspace understanding for DeepSeek Harness. The plugin maintains one compact Project Memory at `<workspace>/.agent/MEMORY.md`, gives each live Agent a fixed in-memory snapshot, injects that snapshot into the system prompt, and exposes explicit tools for reading, updating, and refreshing it.
+English | [简体中文](README.zh-CN.md)
 
-## Compatibility
+Persistent workspace understanding for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
-- DeepSeek Harness: verified against the `0.1.6-alpha.2` line (the runtime shipped with DSH Desktop) and the `0.1.5-rc.2` line
-- Node.js: 22 or newer
+A session spends real effort working out what a project is: how it is laid out, which modules matter, what conventions it follows, how it is built and tested. That understanding is expensive to rediscover and does not belong to any single conversation. This plugin keeps one compact Project Memory per workspace at `<workspace>/.agent/MEMORY.md`, gives each live Agent a fixed snapshot of it, injects that snapshot into the system prompt, and exposes explicit tools for reading, updating, and refreshing it.
 
-The plugin uses only cross-line API surface: the `system-prompt/assemble` waterfall, `Context.tools.register`, `defineTool`, and `Agent.session` (`header.cwd`, `firstLiveSeq`, `surface.replaceGeneration`). It deliberately avoids newer-only options, so one build serves both lines:
+The result: a later session in the same workspace starts from what earlier sessions already learned instead of exploring from zero again.
 
-- Brace pairs in memory prose are rewritten before injection instead of relying on the `interpolate: false` section flag, which exists only from `0.1.6-alpha.2`.
-- The assembly listener declares both leading parameters and reads the agent from `context.agent`, which both lines populate.
-
-`devDependencies` track `0.1.6-alpha.2`, so the type checker runs against the current runtime. `peerDependencies` accept both lines explicitly:
+## How it works
 
 ```
-0.1.5-rc.1 || 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2
+MEMORY.md (revision N)          the persistent, cross-session state
+        │
+        │  session start / resume / refresh
+        ▼
+Session snapshot (revision N)   fixed for the life of one live Agent
+        │
+        ▼
+System prompt                   <PROJECT_MEMORY revision="N"> + policy
+        │
+        ▼
+Agent ──► works normally, or uses the snapshot directly as trusted background
+        │
+        ▼
+project_memory_update           revision N+1 on disk; this session's snapshot stays N
 ```
 
-The range is spelled out rather than given as `^0.1.5-rc.2` on purpose: npm/pnpm semver does not let a prerelease satisfy a range that lacks a prerelease of the same `[major, minor, patch]`, so a caret range pinned to one release candidate silently excludes a later alpha of the same minor.
+Four design commitments shape the behaviour:
 
-DSH is still evolving quickly. Peer resolution normally uses the `@deepseek-ai/*` copies the running DSH installation already provides, so the plugin shares module instances with the host instead of loading private duplicates.
+- **Project-scoped, not user-scoped.** Memory binds to the workspace. One workspace, one memory.
+- **A snapshot is fixed for the session.** Updating memory does not rewrite the snapshot the current session is already using. This keeps the system prompt stable, avoids duplicate context, and prevents the latest facts from appearing before the work that produced them.
+- **Latest state, not a changelog.** Memory is a current project profile. Stale facts get rewritten or deleted rather than accumulated.
+- **Trusted by default.** Agents should not re-explore a workspace just to verify what memory already says. Naturally obtained direct evidence wins, and corrects the memory.
+
+## Requirements
+
+- DeepSeek Harness `0.1.5-rc.1` through `0.1.6-alpha.2` (verified against the `0.1.6-alpha.2` runtime shipped with DSH Desktop, and against `0.1.5-rc.2`)
+- Node.js 22 or newer
 
 ## Install
 
-Registry:
+**Not yet published to npm.** Install from this repository:
 
 ```powershell
-dsh plugin --profile web add dsh-project-memory
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory'
 ```
 
-Straight from a public GitHub repository (no publishing needed — the repository commits its build output, because DSH never builds a plugin):
+The `github:` prefix is required — pnpm would accept a bare `owner/repo`, but DSH validates the spec itself and rejects that form. Pin a commit if you want the code to stay put:
 
 ```powershell
-dsh plugin --profile web add 'github:your-name/dsh-project-memory'
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#<sha>'
 ```
 
-The `github:` prefix is required: pnpm would accept a bare `owner/repo`, but DSH's installer validates the spec itself and rejects that form.
+pnpm may refuse a Git dependency's install scripts on the first attempt and print the package key to allow. If that happens, add it to the **profile's** `pnpm-workspace.yaml` and re-run:
 
-DSH Desktop manages its own `desktop` profile and refuses it from the CLI, so install it there through Settings → Plugins instead. Tarball installs, verification, and uninstall instructions are in [INSTALL.md](./INSTALL.md).
+```yaml
+allowBuilds:
+  dsh-project-memory: true
+```
 
-The bundle inserts this row:
+Treat that allowance as permission for the package's code to run on your machine at install time, outside any sandbox the agent runs in.
+
+**DSH Desktop users:** the `desktop` profile is owned by the Electron app and the CLI refuses to touch it, so install through Settings → Plugins rather than the command line.
+
+Then **restart DSH**. The plugin has no hot-reload root configured by default, so a running process keeps the module it already loaded.
+
+Verify the layer landed in the composed profile tree:
+
+```powershell
+dsh --profile web --dump-config | Select-String -Pattern 'project-memory' -Context 2,4
+```
+
+Expect:
 
 ```yaml
 - id: project-memory
   name: dsh-project-memory
 ```
 
-Verify it landed in the composed profile tree:
+Tarball installs, local development, and uninstall steps are in [INSTALL.md](INSTALL.md).
 
-```powershell
-dsh --profile web --dump-config | Select-String -Pattern 'project-memory' -Context 2,4
+## What you get
+
+### First session in a workspace
+
+There is no memory file yet, so the Agent receives the policy plus bootstrap guidance:
+
+```
+<PROJECT_MEMORY_POLICY>
+Project Memory (<workspace>/.agent/MEMORY.md) caches reusable, project-level knowledge ...
+The snapshot above, when present, is already the current persistent memory. ...
+Record new knowledge with project_memory_update: ...
+
+No persistent memory was recorded for this workspace when this snapshot was taken, so this is
+most likely a first session here.
+
+Once you have learned stable, reusable knowledge about this project, create it with
+project_memory_update using base_revision 0 and the complete Markdown body. Do that after you
+have actually explored the workspace — not before.
+
+This snapshot stays fixed for the whole session, so it keeps saying this even after you have
+written the file. Check with project_memory_read before writing again; do not re-create memory
+that this session already recorded.
+</PROJECT_MEMORY_POLICY>
 ```
 
-## Develop locally
+The policy is injected for every assembly with a resolvable workspace. Only the content block depends on there being something to show, because the policy is what tells the Agent this mechanism exists at all — gating it on existing content would hide Project Memory from exactly the session that has to create it first.
 
-```powershell
-pnpm install
-pnpm build
-dsh plugin --profile web add file:D:/path/to/dsh-project-memory-plugin
-dsh --profile web --dump-config
+### Later sessions
+
 ```
+<PROJECT_MEMORY revision="3">
+# Architecture
+...
+</PROJECT_MEMORY>
+
+<PROJECT_MEMORY_POLICY>
+...
+</PROJECT_MEMORY_POLICY>
+```
+
+## Model tools
+
+| Tool | Purpose |
+| --- | --- |
+| `project_memory_read` | Reads the latest persistent file and reports whether the caller's snapshot is stale. Does **not** refresh the snapshot. |
+| `project_memory_update` | Takes `base_revision` plus the complete maintained Markdown body. Writes only when the revision still matches and the normalized body changed. Does **not** mutate the current snapshot. |
+| `project_memory_refresh` | Replaces only the caller's Session snapshot. The next model step receives it. |
+
+Updates are serialized across processes with an on-disk lock and use optimistic revision control. On conflict the tool returns the latest revision and content instead of overwriting another session's work, so two sessions writing at once cannot silently lose knowledge.
 
 ## Configuration
 
-Override the inserted row in a later Cordis patch when needed:
+Override the inserted row in the profile's `cordis.patch.yml`:
 
 ```yaml
 - id: project-memory
@@ -75,9 +144,11 @@ Override the inserted row in a later Cordis patch when needed:
     staleLockMs: 30000
 ```
 
+A patch replaces a row's entire `config`, so restate every key you want to keep.
+
 ## Memory format
 
-The plugin owns a small metadata frontmatter while leaving the body as free structured Markdown:
+The plugin owns a small frontmatter while leaving the body as free structured Markdown. Sections are chosen by the Agent to fit the project; there is no fixed schema.
 
 ```markdown
 ---
@@ -90,42 +161,51 @@ revision: 3
 Reusable current project knowledge.
 ```
 
-An existing Markdown file without frontmatter is accepted as legacy revision 0 and upgraded on its first successful update. Reads do not create `.agent` or `MEMORY.md`; the first effective update does.
-
-Memory prose is injected verbatim, except that a brace pair is rendered as `{ {`. DSH interpolates `{{variable}}` references in prompt sections and rejects unknown or malformed ones, so a project that documents GitHub Actions expressions or template syntax would otherwise fail prompt rendering. Nothing else in the body is rewritten.
-
-## Model tools
-
-- `project_memory_read` reads the latest persistent file and reports whether the caller's snapshot is stale. It does not refresh the snapshot.
-- `project_memory_update` accepts `base_revision` plus the complete maintained Markdown body. It writes only when the revision still matches and the normalized body changed. It does not mutate the current snapshot.
-- `project_memory_refresh` replaces only the caller's Session snapshot. The next model step receives it.
-
-Updates are serialized across processes with an on-disk lock and use optimistic revision control. On conflict, the tool returns the latest revision and content instead of overwriting another Session's work.
-
-## Snapshot and compaction semantics
-
-A snapshot is keyed by the live Agent, not persisted in the Session log. New and resumed Agents load the latest memory. Ordinary persistent updates leave existing snapshots fixed.
-
-DSH assembles the system prompt before automatic pressure compaction runs in `agent/pre-step`. The plugin therefore detects a committed Session surface replacement through `replaceGeneration` and refreshes at the following prompt-assembly boundary. It does not patch or replace the DSH compaction engine.
-
-The `<PROJECT_MEMORY_POLICY>` block is injected for every assembly that has a resolvable workspace, whether or not memory exists yet — it is what tells the Agent that Project Memory exists and how to maintain it. Only the `<PROJECT_MEMORY revision="N">` content block depends on there being something to show:
-
-- **No `MEMORY.md` yet** (a first session): the policy is injected with bootstrap guidance — treat the empty state as normal, and create the first memory with `project_memory_update` on `base_revision 0` once the workspace has actually been explored.
-- **`MEMORY.md` exists**: the policy is injected together with the snapshot content.
-
-Because the snapshot stays fixed, a session that bootstraps memory keeps seeing the bootstrap variant until a refresh or a surface replacement. That guidance therefore also tells the Agent to check `project_memory_read` before writing again, so it does not re-create what the same session already recorded.
+- An existing Markdown file **without** frontmatter is accepted as legacy revision 0 and upgraded on its first successful update, so adopting the plugin does not require rewriting an existing memory file.
+- Reads never create `.agent` or `MEMORY.md`; the first effective update does.
+- Prose is injected verbatim, except that a brace pair is rendered as `{ {`. DSH interpolates `{{variable}}` references in prompt sections and rejects unknown or malformed ones, so a project documenting GitHub Actions expressions or template syntax would otherwise break prompt rendering. Nothing else is rewritten.
 
 ## Safety boundaries
 
-The plugin is Host code, so it performs its own workspace checks. It rejects cwd-less calls, non-absolute workspaces, `.agent`/`MEMORY.md` symlinks, non-regular memory files, NUL content, malformed metadata, oversized bodies, and unsafe revisions. Project Memory is trusted as a project-knowledge baseline but is explicitly unable to override higher-priority instructions, permissions, or safety policy.
+The plugin runs as Host code and performs its own workspace checks. It rejects cwd-less calls, non-absolute workspaces, `.agent`/`MEMORY.md` symlinks, non-regular memory files, NUL content, malformed metadata, oversized bodies, and unsafe revisions.
 
-A rejection never breaks a model step. The prompt listener treats Project Memory as an optional background layer: when the workspace cannot be resolved or the memory file is refused, that assembly simply goes out without a memory section and the plugin logs a warning. The exception is a caller-initiated abort, which keeps propagating.
+A rejection never breaks a model step. The prompt listener treats Project Memory as an optional background layer: when the workspace cannot be resolved or the memory file is refused, that assembly goes out without a memory section and the plugin logs a warning. A caller-initiated abort still propagates.
+
+Project Memory is a trusted project-knowledge baseline, but it cannot override higher-priority instructions, permissions, or safety policy.
+
+## Compatibility notes
+
+The plugin uses only cross-line API surface: the `system-prompt/assemble` waterfall, `Context.tools.register`, `defineTool`, and `Agent.session` (`header.cwd`, `firstLiveSeq`, `surface.replaceGeneration`). It avoids newer-only options so one build serves both lines:
+
+- Brace pairs are rewritten before injection instead of relying on the `interpolate: false` section flag, which exists only from `0.1.6-alpha.2`.
+- The assembly listener declares both leading parameters and reads the agent from `context.agent`, which both lines populate.
+
+`peerDependencies` spell out the supported versions rather than using a caret range:
+
+```
+0.1.5-rc.1 || 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2
+```
+
+npm/pnpm semver does not let a prerelease satisfy a range that lacks a prerelease of the same `[major, minor, patch]`, so `^0.1.5-rc.2` would silently exclude `0.1.6-alpha.2`.
+
+## Relationship to other DSH memory plugins
+
+Several plugins in this space overlap, and they make different choices. This one is distinctive in three ways: memory is a plain Markdown file you can read and edit by hand; the Agent maintains it directly rather than routing proposals through human approval; and the injected snapshot is deliberately fixed for a session while explicit tools control when it refreshes. If you want approval-gated writes, storage-backed records, or semantic recall, one of the others may fit better.
 
 ## Development
 
 ```powershell
+pnpm install
 pnpm typecheck
 pnpm test
 pnpm build
 pnpm pack
 ```
+
+`lib/` is committed on purpose: DSH loads a plugin's built entry and never builds it, so the repository has to carry loadable output. Run `pnpm build` before committing changes to `src/`. `prepack` rebuilds and typechecks automatically for registry and tarball installs.
+
+See [RELEASING.md](RELEASING.md) for the release checklist and [PROJECT_NOTEBOOK.md](PROJECT_NOTEBOOK.md) for the original design notes.
+
+## License
+
+MIT

@@ -16,7 +16,9 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "INSTALL.md"
+    "README.zh-CN.md",
+    "INSTALL.md",
+    "INSTALL.zh-CN.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -32,6 +34,14 @@
     "agent"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/namingsohard/dsh-project-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/namingsohard/dsh-project-memory/issues"
+  },
+  "homepage": "https://github.com/namingsohard/dsh-project-memory#readme",
   "engines": {
     "node": ">=22"
   },

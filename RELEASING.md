@@ -1,5 +1,26 @@
 # Releasing dsh-project-memory
 
+English | [简体中文](RELEASING.zh-CN.md)
+
+## Blocking issue: the npm name is taken
+
+This package **cannot be published as `dsh-project-memory`**. An unrelated plugin already owns that name on npm (published 2026-08-16 by `louisxiao`, repository `luoyuejun9/dsh-project-memory`). `pnpm publish` would fail with a 403, and the name cannot be reclaimed.
+
+Pick one of these before publishing:
+
+| Option | Name | Trade-off |
+| --- | --- | --- |
+| Scoped (recommended) | `@namingsohard/dsh-project-memory` | Keeps the descriptive name; users must type the scope. Scope must match the npm account or org that owns it. |
+| Rename | e.g. `dsh-workspace-understanding` | Simpler install line; loses the obvious name and the search traffic that comes with it. |
+
+The npm ecosystem around DSH memory is already crowded (`dsh-agent-memory`, `dsh-workspace-memory`, `nishi-dsh-project-memory`, `dsh-memory-vault`, `@hy-sde-org/dsh-memory`, and more), so a distinct name also reduces confusion regardless of availability.
+
+**Renaming touches three places, and missing any one of them breaks installation:**
+
+1. `package.json` → `name`
+2. `cordis.patch.yml` → the row's `name` (this is what Node resolves; it must match the package name)
+3. Every install command in `README.md`, `README.zh-CN.md`, `INSTALL.md`, `INSTALL.zh-CN.md`
+
 ## What ships, and why
 
 DeepSeek Harness loads a plugin's built entry (`main: ./lib/index.js`) and never builds it. That single fact drives the whole release story:
@@ -23,7 +44,7 @@ pnpm build          # must run after any src/ change, before committing
 pnpm pack           # prepack rebuilds; inspect the file list
 ```
 
-Confirm the tarball contains `lib/`, `cordis.patch.yml`, `README.md`, `INSTALL.md`, and `LICENSE`, and that `package.json` still declares:
+Confirm the tarball contains `lib/`, `cordis.patch.yml`, `README.md`, `README.zh-CN.md`, `INSTALL.md`, `INSTALL.zh-CN.md`, and `LICENSE`, and that `package.json` still declares:
 
 ```json
 "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
@@ -35,7 +56,7 @@ Also confirm `files` still lists only what should ship, and that `.gitignore` st
 
 ## Versioning
 
-`package.json.version` is the release version. Bump it, rebuild, and tag the commit with the same version:
+`package.json.version` is the release version. Bump it, rebuild, and tag the same commit:
 
 ```powershell
 git add -A
@@ -44,22 +65,29 @@ git tag v0.1.0
 git push origin main --tags
 ```
 
+Tag before publishing, so the registry entry records a `gitHead` that actually exists in the repository.
+
 ## Publishing to npm
 
 ```powershell
-pnpm build
-npm publish
+npm login
+pnpm publish --dry-run      # inspect: only lib/, the patch, docs, LICENSE, package.json
+pnpm publish
 ```
 
-Users then install with `dsh plugin --profile web add dsh-project-memory`.
+`prepack` rebuilds and typechecks. An unscoped package publishes public by default; a scoped one needs `publishConfig.access: "public"` or `--access public`, otherwise it lands private and nobody can install it.
+
+A published `name@version` is permanent — you cannot reuse it, and unpublishing is only practical within 72 hours. Dry-run first, and prefer validating a tarball install (`pnpm pack` → `dsh plugin --profile web add ./x.tgz`) before the real publish.
+
+Users then install with `dsh plugin --profile web add <published-name>`.
 
 ## Publishing to GitHub only
 
 Nothing extra is required: committing `lib/` makes the repository directly installable.
 
 ```powershell
-dsh plugin --profile web add 'github:your-name/dsh-project-memory'
-dsh plugin --profile web add 'github:your-name/dsh-project-memory#v0.1.0'
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory'
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#v0.1.0'
 ```
 
 Keep the `github:` prefix in every instruction you publish. pnpm accepts a bare `owner/repo`, but DSH validates the spec before forwarding it and rejects that form as "not a package name the registry accepts".
@@ -87,15 +115,15 @@ Spelling the range out works well in practice:
 
 Verify against the runtime you ship to, not only against `devDependencies`. See `REVIEW_AND_SMOKE_TEST.md` §五 for the verification method used against a real DSH Desktop runtime.
 
-**Watch the module-instance question when developing through a link.** A `link:`/junction install keeps the checkout's own `node_modules`, so the plugin loads its private `@deepseek-ai/*` copies even though the host has its own. Keeping `devDependencies` on the same version as the host makes that harmless. Avoid `file:` vs `link:` surprises by installing a built tarball when you want to test what users actually get.
+**Watch the module-instance question when developing through a link.** A `link:`/junction install keeps the checkout's own `node_modules`, so the plugin loads its private `@deepseek-ai/*` copies even though the host has its own. Keeping `devDependencies` on the same version as the host makes that harmless. Install a built tarball when you want to test what users actually get.
 
 ## Files that must not be published
 
 | Path | Why |
 | --- | --- |
 | `node_modules/` | ignored by git; never publish |
-| `.audit/` | local verification scripts containing machine-specific absolute paths; excluded from `files` |
-| `REVIEW_AND_SMOKE_TEST.md` | local paths and profile internals; scrub before publishing it |
+| `.audit/` | local verification scripts containing machine-specific absolute paths; ignored by git and excluded from `files` |
+| `REVIEW_AND_SMOKE_TEST.md` | local paths and profile internals; not in `files`, but **is in the repository** — scrub before publishing the repo |
 | `*.tgz` | build artifact |
 
 `files` is an allow-list, so anything not listed stays out of the tarball. Git is a separate question — check `git status` before the first push and make sure no local-only notes or machine paths are included.

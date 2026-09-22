@@ -1,5 +1,7 @@
 # Installing dsh-project-memory
 
+English | [简体中文](INSTALL.zh-CN.md)
+
 This plugin is a DeepSeek Harness **bundle**: it ships a `cordis.patch.yml` that the DSH loader applies as a profile layer. Installation therefore means "make this package resolvable inside a DSH profile", not "copy files somewhere".
 
 One prerequisite matters for every path below: **DeepSeek Harness never builds a plugin.** It loads the built entry declared in `package.json` (`main: ./lib/index.js`). This repository commits `lib/`, so both the GitHub and npm paths work without a local build step.
@@ -19,55 +21,71 @@ error: profile "desktop" is managed exclusively by the Electron application
 
 That guard exists because the Electron app owns that profile's lifecycle. Use its plugin manager UI instead.
 
-## Option A — from the npm registry (recommended)
+## Option A — from this GitHub repository (current)
 
-Once published:
-
-```powershell
-dsh plugin --profile web add dsh-project-memory
-```
-
-The package's `dsh.bundle.patch` field points at the bundled `cordis.patch.yml`, so installation both adds the dependency and registers the profile layer.
-
-## Option B — from the GitHub repository
-
-pnpm resolves a Git spec through the host, so a public repository needs no registry publishing:
+The package is **not published to npm yet**, so this is the path that works today:
 
 ```powershell
-dsh plugin --profile web add 'github:your-name/dsh-project-memory'
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory'
 ```
 
-Pin a tag or commit the same way:
+Pin a tag or commit:
 
 ```powershell
-dsh plugin --profile web add 'github:your-name/dsh-project-memory#v0.1.0'
-dsh plugin --profile web add 'github:your-name/dsh-project-memory#97edff6'
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#v0.1.0'
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#<sha>'
 ```
 
-The full URL form is equivalent (`https://github.com/your-name/dsh-project-memory`, or with `.git`), and needs no quoting.
+The full URL form is equivalent (`https://github.com/namingsohard/dsh-project-memory`, or with `.git`).
 
 **Always write the `github:` prefix.** pnpm itself accepts a bare `owner/repo` and defaults it to GitHub, but DSH's installer validates the spec first with a narrower grammar and rejects the bare form:
 
 ```
-plugin-manager: not a package name the registry accepts: your-name/dsh-project-memory
+plugin-manager: not a package name the registry accepts: namingsohard/dsh-project-memory
 ```
 
-A bare two-segment spec only matches DSH's hosted-repository rule when it starts with `http://` or `https://`, so `https://github.com/...` is accepted while `owner/repo` is not.
+A bare two-segment spec only matches DSH's hosted-repository rule when it starts with `http://` or `https://`.
 
-**A Git install fetches sources, not built artifacts, and runs no build for you.** This repository commits its compiled `lib/`, but pnpm's handling of a Git dependency's `prepare` script still applies: pnpm ≥ 10 refuses to run a Git dependency's install scripts until the user allows it, so the first `add` can fail with a build-script notice. DSH points at the fix — copy the exact package key pnpm printed into the profile's `pnpm-workspace.yaml`:
+**A Git install fetches sources, not built artifacts.** This repository commits its compiled `lib/`, so the code that loads is the code that was reviewed. pnpm ≥ 10 may still refuse a Git dependency's install scripts on the first attempt; DSH prints the fix — copy the exact package key pnpm printed into the **profile's** `pnpm-workspace.yaml`:
 
 ```yaml
 allowBuilds:
   dsh-project-memory: true
 ```
 
-Then re-run the `add`. Treat that allowance as **permission for the package's code to execute on your machine at install time**, outside any sandbox the agent runs in. Prefer pinning a commit (`#<sha>`) so a later push cannot silently change what runs, and only allow sources you trust.
+Then re-run the `add`. Treat that allowance as **permission for the package's code to execute on your machine at install time**, outside any sandbox the agent runs in. Pin a commit (`#<sha>`) so a later push cannot silently change what runs, and only allow sources you trust.
 
-If you would rather not ask for that permission at all, use one of the prebuilt paths instead — npm (Option A) or a tarball (Option C). Both install already-built code and need no allowance. The upstream documentation makes the same recommendation, and the [official publish guide](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.md) is the authority for these rules.
+If you would rather not ask for that permission at all, use the tarball path (Option C) — it installs prebuilt code and needs no allowance.
 
 Git must also be available on the installing machine, since pnpm fetches Git sources through it.
 
-**Note on how this package handles it.** This repository commits `lib/` rather than relying on a `prepare`-built install, so the code that ships is the code that was reviewed and tested. That removes the "arrives without build output and fails to load" failure mode, but it does not by itself remove the `allowBuilds` prompt described above.
+## Option B — from the npm registry (after publishing)
+
+Once published, this becomes the simplest path, because a registry install carries prebuilt code and needs no build permission:
+
+```powershell
+dsh plugin --profile web add <published-name>
+dsh --profile web --dump-config
+```
+
+A wrong name here fails at `pnpm view` with `ERR_PNPM_FETCH_404`. The name this package can publish under is decided in [RELEASING.md](RELEASING.md) — `dsh-project-memory` itself is already taken on npm by an unrelated plugin.
+
+The package's `dsh.bundle.patch` field points at the bundled `cordis.patch.yml`, so installation both adds the dependency and registers the profile layer.
+
+```powershell
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#v0.1.0'
+dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#97edff6'
+```
+
+The full URL form is equivalent (`https://github.com/namingsohard/dsh-project-memory`, or with `.git`), and needs no quoting.
+
+**Always write the `github:` prefix.** pnpm itself accepts a bare `owner/repo` and defaults it to GitHub, but DSH's installer validates the spec first with a narrower grammar and rejects the bare form:
+
+```
+plugin-manager: not a package name the registry accepts: namingsohard/dsh-project-memory
+```
+
+A bare two-segment spec only matches DSH's hosted-repository rule when it starts with `http://` or `https://`, so `https://github.com/...` is accepted while `owner/repo` is not. The [official publish guide](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.md) is the authority for these rules.
 
 ## Option C — from a tarball
 
@@ -83,7 +101,7 @@ dsh plugin --profile web add D:/downloads/dsh-project-memory-0.1.0.tgz
 The desktop profile is managed by the Electron app, so install through its UI:
 
 1. Open Settings → Plugins.
-2. Add the package spec (`dsh-project-memory` once published, or the repository spec, or an absolute path to a local checkout).
+2. Add the spec shown in Option A (`github:namingsohard/dsh-project-memory`), or an absolute path to a local checkout.
 3. Restart DSH Desktop.
 
 For local development against a checkout, a `link:`-style entry makes the built output live: rebuild with `pnpm build` and restart the app, with no reinstall in between.
@@ -108,7 +126,7 @@ Then **restart DSH** (or reload the profile). The plugin has no hot-reload root 
 To confirm it is actually active, open a session in any workspace and ask:
 
 ```
-你知道 Project Memory 吗？当前这个工作区有吗？
+Do you know about Project Memory, and does this workspace have one yet?
 ```
 
 A working install answers without reading files, and mentions `.agent/MEMORY.md`. On a workspace with no memory yet, it should also say this is likely the first session and that it will create the file after exploring.
