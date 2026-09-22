@@ -1,0 +1,15 @@
+# Normalize line endings to LF everywhere.
+#
+# Without this, Windows checkouts (core.autocrlf=true) stored CRLF blobs while
+# `tsc` emitted LF into lib/, so every build showed lib/ as modified even though
+# git's own view of the content (numstat 0/0) proved the bytes were equivalent.
+# Pinning LF makes the committed build output reproducible and keeps npm tarballs
+# consistent regardless of who builds them.
+* text=auto eol=lf
+
+# Binary assets must never be normalized.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.tgz binary
