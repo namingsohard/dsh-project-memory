@@ -225,7 +225,7 @@ pnpm pack
 
 `lib/` is committed on purpose: DSH loads a plugin's built entry and never builds it, so the repository has to carry loadable output. Run `pnpm build` before committing changes to `src/`. `prepack` rebuilds and typechecks automatically for registry and tarball installs.
 
-See [RELEASING.md](RELEASING.md) for the release checklist and [PROJECT_NOTEBOOK.md](PROJECT_NOTEBOOK.md) for the original design notes.
+The release checklist and the original design notes are maintainer notes and are not published with the source.
 
 ## License
 

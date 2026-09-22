@@ -70,7 +70,7 @@ dsh plugin --profile web add <published-name>
 dsh --profile web --dump-config
 ```
 
-A wrong name here fails at `pnpm view` with `ERR_PNPM_FETCH_404`. The name this package can publish under is decided in [RELEASING.md](RELEASING.md) — `dsh-project-memory` itself is already taken on npm by an unrelated plugin.
+A wrong name here fails at `pnpm view` with `ERR_PNPM_FETCH_404`. Note that `dsh-project-memory` itself is already taken on npm by an unrelated plugin, so the name to publish under differs from the repository name.
 
 The package's `dsh.bundle.patch` field points at the bundled `cordis.patch.yml`, so installation both adds the dependency and registers the profile layer.
 

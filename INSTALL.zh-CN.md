@@ -70,7 +70,7 @@ dsh plugin --profile web add <发布名>
 dsh --profile web --dump-config
 ```
 
-名字写错会在这里失败：`pnpm view` 报 `ERR_PNPM_FETCH_404`。本包能用的发布名在 [RELEASING.md](RELEASING.md) 里决定——`dsh-project-memory` 这个名字已经被 npm 上一个无关的插件占用了。
+名字写错会在这里失败：`pnpm view` 报 `ERR_PNPM_FETCH_404`。注意 `dsh-project-memory` 这个名字已经被 npm 上一个无关的插件占用，所以实际发布名与仓库名并不相同。
 
 包的 `dsh.bundle.patch` 字段指向随包附带的 `cordis.patch.yml`，所以安装会同时添加依赖并注册配置层。
 

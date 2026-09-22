@@ -225,7 +225,7 @@ pnpm pack
 
 `lib/` 是刻意提交进仓库的：DSH 只加载插件已构建的入口、从不构建它，所以仓库必须自带可加载的产物。改动 `src/` 后提交前务必跑 `pnpm build`。发布到 registry 或用 tarball 分发时，`prepack` 会自动重新构建并做类型检查。
 
-发布清单见 [RELEASING.md](RELEASING.md)，最初的设计说明见 [PROJECT_NOTEBOOK.md](PROJECT_NOTEBOOK.md)。
+发布清单和最初的设计说明属于维护者笔记，不随源码发布。
 
 ## 许可证
 

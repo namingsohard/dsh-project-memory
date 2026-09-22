@@ -10,9 +10,17 @@ coverage/
 # nothing from a run ever lands here and no scratch pattern is needed.
 .audit/
 
+# Maintainer notes, kept out of the published tree: RELEASING.md, RELEASING.zh-CN.md,
+# REVIEW_AND_SMOKE_TEST.md and PROJECT_NOTEBOOK.md live in here now. README.md and
+# INSTALL.md no longer link to them. This path is untracked, which is the only reason
+# the rule works at all -- see the note at the bottom. It also means these files exist
+# on this machine only: a fresh clone does not get them, and neither does any backup
+# of the repository. Their previous copies are still reachable in the pushed history.
+/private/
+
 # State this plugin writes into whatever workspace it runs against. This checkout is
 # such a workspace, so project_memory_update creates .agent/MEMORY.md right here. It
-# is live state that sessions rewrite, not source, so tracking it would churn the
+# is live state that sessions rewrite, not source, so a tracked copy would churn the
 # diff on ordinary work. It was briefly tracked; this rule is what keeps it out.
 .agent/
 
@@ -29,16 +37,13 @@ desktop.ini
 .vscode/
 .idea/
 
-# Deliberately NOT ignored: REVIEW_AND_SMOKE_TEST.md, PROJECT_NOTEBOOK.md and
-# RELEASING*.md. Those three patterns used to sit in this file while the same paths
-# were also tracked. A pattern has no effect on a path already in the index, so the
-# rules were fiction -- the files were committed and pushed regardless, and README.md
-# and INSTALL.md link to them. They are published documentation on purpose, so they
-# stay tracked and the misleading rules are gone. If one ever really has to leave the
-# repository, `git rm --cached <path>` comes first and only then the pattern.
-#
-# .dsh/ is not ignored either: in a workspace that path holds shared project state
-# (dsh-skill-filesystem reads <projectRoot>/.dsh/skills), not local noise.
+# .dsh/ is deliberately not ignored: in a workspace that path holds shared project
+# state (dsh-skill-filesystem reads <projectRoot>/.dsh/skills), not local noise.
+
+# A pattern here has no effect on a path that is already in the index. Everything
+# listed above is untracked, and that is what makes the rule real. To retire another
+# path, run `git rm --cached <path>` first and only then add the pattern -- the
+# reverse order produces a rule that looks protective and never fires.
 
 # Not ignored: lib/ is committed on purpose.
 # DeepSeek Harness loads a plugin's built entry (`main: ./lib/index.js`) and never
