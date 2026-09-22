@@ -97,7 +97,7 @@ tarball 安装、本地开发安装和卸载步骤见 [INSTALL.md](INSTALL.md)�
 
 ### 工作区的第一个会话
 
-此时还没有记忆文件，Agent 会收到 policy 加上首次会话的引导：
+此时还没有记忆文件，Agent 会收到 policy 加上首次会话引导——它把"创建这个文件"写成本会话的一项未完成任务，而不是可选项：
 
 ```
 <PROJECT_MEMORY_POLICY>
@@ -106,11 +106,18 @@ The snapshot above, when present, is already the current persistent memory. ...
 Record new knowledge with project_memory_update: ...
 
 No persistent memory was recorded for this workspace when this snapshot was taken, so this is
-most likely a first session here.
+most likely a first session here — and creating that file is an outstanding task of this
+session, not an optional extra.
 
-Once you have learned stable, reusable knowledge about this project, create it with
-project_memory_update using base_revision 0 and the complete Markdown body. Do that after you
-have actually explored the workspace — not before.
+Do it once you have actually seen the project: after reading enough of the workspace to
+describe it accurately, and before you wrap up the work in front of you. Create it with
+project_memory_update using base_revision 0 and the complete Markdown body — what the project
+is, how it is organized, the conventions it follows, and how it is built and run. Do not write
+it first and explore afterwards: later sessions trust this file, so an unverified profile is
+worse than none.
+
+Ending this session without the file makes the next session pay for the same exploration
+again. Skip it only if this session genuinely learned nothing reusable.
 
 This snapshot stays fixed for the whole session, so it keeps saying this even after you have
 written the file. Check with project_memory_read before writing again; do not re-create memory
@@ -119,6 +126,8 @@ that this session already recorded.
 ```
 
 只要工作区可解析，policy 每个 assembly 都会注入。只有内容块取决于是否真有东西可展示——因为 policy 本身就是"告诉 Agent 这套机制存在"的唯一途径，若把它和内容绑在一起，恰恰会让最需要创建第一份记忆的那个会话完全看不到 Project Memory。
+
+插件自己不会执行这第一次写入：唯一的写路径是模型调用 `project_memory_update`。所以 bootstrap 文案写成了"带完成条件的义务"而非"可选建议"，`project_memory_update` 的 description 也明确把创建职责写进去——会话做完了手头任务却没写记忆，下一个会话就得把探索重走一遍。
 
 ### 后续会话
 
@@ -138,7 +147,7 @@ that this session already recorded.
 | 工具 | 用途 |
 | --- | --- |
 | `project_memory_read` | 读取最新持久文件，并报告调用方的快照是否已过期。**不会**刷新快照。 |
-| `project_memory_update` | 接收 `base_revision` 和完整维护后的 Markdown 正文。仅当 revision 仍然匹配、且规范化后的正文确有变化时才写入。**不会**修改当前快照。 |
+| `project_memory_update` | 唯一的写入路径，同时也是创建路径：`base_revision`（尚无记忆时填 `0`）+ 完整 Markdown 正文。仅当 revision 仍然匹配、且规范化后的正文确有变化时才写入。**不会**修改当前快照。 |
 | `project_memory_refresh` | 只替换调用方的 Session 快照。下一个模型步就会用上它。 |
 
 更新通过磁盘锁跨进程串行化，并使用乐观 revision 控制。发生冲突时工具返回最新 revision 和内容，而不是覆盖另一个会话的工作——两个会话同时写入不会静默丢失认知。

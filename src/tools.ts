@@ -65,17 +65,17 @@ export function registerMemoryTools(
 
   ctx.tools.register(defineTool({
     name: 'project_memory_update',
-    description: 'Replace the persistent Project Memory body using optimistic revision control. Preserve useful existing knowledge, remove stale facts, and keep it concise; this is a current project profile, not a changelog. Updating persistent memory does not change this session\'s snapshot.',
+    description: 'The only write path for this workspace\'s persistent Project Memory: it creates the file as well as maintaining it. Submit base_revision from the latest project_memory_read (0 when no memory exists yet) plus the complete Markdown body — the current project profile, not a changelog or a session summary. Preserve what is still useful, rewrite or delete what is stale, stay concise. Updating persistent memory does not change this session\'s snapshot.',
     parameters: {
       base_revision: {
         type: 'integer',
         required: true,
-        description: 'Revision returned by the latest project_memory_read call.',
+        description: 'Revision returned by the latest project_memory_read call; use 0 when this workspace has no Project Memory yet, which is how the first write creates it.',
       },
       content: {
         type: 'string',
         required: true,
-        description: 'Complete maintained Markdown body, without revision frontmatter.',
+        description: 'Complete Markdown body to write — the whole profile, not a patch or a single section, and without revision frontmatter.',
       },
       reason: {
         type: 'string',

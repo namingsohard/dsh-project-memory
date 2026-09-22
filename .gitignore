@@ -3,6 +3,9 @@ coverage/
 .audit/
 *.tgz
 .DS_Store
+REVIEW_AND_SMOKE_TEST.md
+PROJECT_NOTEBOOK.md
+RELEASING*.md
 
 # Local-only artifacts.
 .pnpm-store/

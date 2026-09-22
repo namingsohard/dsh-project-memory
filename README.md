@@ -97,7 +97,7 @@ Tarball installs, local development, and uninstall steps are in [INSTALL.md](INS
 
 ### First session in a workspace
 
-There is no memory file yet, so the Agent receives the policy plus bootstrap guidance:
+There is no memory file yet, so the Agent receives the policy plus bootstrap guidance that states creating the file is an open task for this session:
 
 ```
 <PROJECT_MEMORY_POLICY>
@@ -106,11 +106,18 @@ The snapshot above, when present, is already the current persistent memory. ...
 Record new knowledge with project_memory_update: ...
 
 No persistent memory was recorded for this workspace when this snapshot was taken, so this is
-most likely a first session here.
+most likely a first session here — and creating that file is an outstanding task of this
+session, not an optional extra.
 
-Once you have learned stable, reusable knowledge about this project, create it with
-project_memory_update using base_revision 0 and the complete Markdown body. Do that after you
-have actually explored the workspace — not before.
+Do it once you have actually seen the project: after reading enough of the workspace to
+describe it accurately, and before you wrap up the work in front of you. Create it with
+project_memory_update using base_revision 0 and the complete Markdown body — what the project
+is, how it is organized, the conventions it follows, and how it is built and run. Do not write
+it first and explore afterwards: later sessions trust this file, so an unverified profile is
+worse than none.
+
+Ending this session without the file makes the next session pay for the same exploration
+again. Skip it only if this session genuinely learned nothing reusable.
 
 This snapshot stays fixed for the whole session, so it keeps saying this even after you have
 written the file. Check with project_memory_read before writing again; do not re-create memory
@@ -119,6 +126,8 @@ that this session already recorded.
 ```
 
 The policy is injected for every assembly with a resolvable workspace. Only the content block depends on there being something to show, because the policy is what tells the Agent this mechanism exists at all — gating it on existing content would hide Project Memory from exactly the session that has to create it first.
+
+Nothing in the plugin performs that first write: the only write path is the model calling `project_memory_update`. That is why the bootstrap text is phrased as an obligation with a completion condition rather than an option, and why the update tool's own description names creation — a session that finishes its task without writing leaves the next one to repeat the whole exploration.
 
 ### Later sessions
 
@@ -138,7 +147,7 @@ The policy is injected for every assembly with a resolvable workspace. Only the 
 | Tool | Purpose |
 | --- | --- |
 | `project_memory_read` | Reads the latest persistent file and reports whether the caller's snapshot is stale. Does **not** refresh the snapshot. |
-| `project_memory_update` | Takes `base_revision` plus the complete maintained Markdown body. Writes only when the revision still matches and the normalized body changed. Does **not** mutate the current snapshot. |
+| `project_memory_update` | The only write path, and also the create path: `base_revision` (`0` when nothing exists yet) plus the complete Markdown body. Writes only when the revision still matches and the normalized body changed. Does **not** mutate the current snapshot. |
 | `project_memory_refresh` | Replaces only the caller's Session snapshot. The next model step receives it. |
 
 Updates are serialized across processes with an on-disk lock and use optimistic revision control. On conflict the tool returns the latest revision and content instead of overwriting another session's work, so two sessions writing at once cannot silently lose knowledge.

@@ -43,11 +43,39 @@ describe('prompt provider', () => {
     expect(rendered).not.toContain('<PROJECT_MEMORY revision')
   })
 
+  // Regression: the bootstrap text described creating memory as something to do
+  // "once you have learned" something, which reads as optional background rather
+  // than an open task. A session could finish a full exploration of an unknown
+  // workspace, answer its question, and never write the first revision.
+  it('states creating the first revision as an outstanding task', () => {
+    const rendered = renderProjectMemory(snapshotWith(''))
+    expect(rendered).toContain('outstanding task of this session, not an optional extra')
+    expect(rendered).toContain('before you wrap up the work in front of you')
+    expect(rendered).toContain('pay for the same exploration again')
+  })
+
+  // The obligation is to write *after* looking: an unverified profile is trusted
+  // by every later session, so a guessed one is worse than none.
+  it('keeps the bootstrap obligation gated on actual exploration', () => {
+    const rendered = renderProjectMemory(snapshotWith(''))
+    expect(rendered).toContain('Do not write it first and explore afterwards')
+    expect(rendered).toContain('after reading enough of the workspace to describe it accurately')
+  })
+
   it('describes the snapshot as current instead of asking for verification', () => {
     const rendered = renderProjectMemory(snapshot)
     expect(rendered).toContain('already the current persistent memory')
     expect(rendered).toContain('do not re-read files or re-explore the workspace')
     expect(rendered).not.toContain('first session')
+  })
+
+  // The shared policy used to say "base_revision from the most recent
+  // project_memory_read" only, which has no answer in a workspace where nothing
+  // has ever been written. It now names 0 as the create path, so the same
+  // instruction is executable from either side of the first write.
+  it('names base_revision 0 as the create path in the shared policy', () => {
+    expect(renderProjectMemory(snapshot)).toContain('or 0 when this workspace has no memory yet')
+    expect(renderProjectMemory(snapshotWith(''))).toContain('or 0 when this workspace has no memory yet')
   })
 
   it('inserts the policy-only section before the deployment persona suffix', () => {
