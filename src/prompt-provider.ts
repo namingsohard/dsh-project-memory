@@ -3,21 +3,21 @@ import type { SessionMemorySnapshot } from './snapshot-manager.js'
 
 export const PROJECT_MEMORY_SECTION = 'project-memory:snapshot'
 
-const POLICY = `Project Memory (<workspace>/.agent/MEMORY.md) holds what stays true of this project between sessions and is worth a later session's context: what the project is and what it is for, how the repository is laid out and where its behavior lives, the conventions the code actually follows, the exact commands that build, test, run, and release it, and the constraints or contracts a change has to respect.
+const POLICY = `Project Memory (<workspace>/.agent/MEMORY.md) holds what stays true of this project between sessions and is worth a later session's context: what the project is and is for, how the repository is laid out and where its behavior lives, the conventions the code follows, the commands that build, test, run, and release it, and the constraints a change must respect.
 
-Its subject is always the project: an entry is a fact about this repository that stays true the next time someone works here, and that a newcomer would otherwise have to reconstruct from the code. Every line travels in every later session's context, so the file stays small and reads as one page.
+Its subject is always the project: an entry is a fact about this repository that stays true next time and that a newcomer would otherwise have to reconstruct. Every line travels in every later session's context, so the file stays small.
 
-The snapshot above, when present, is already the current persistent memory. Treat it as the trusted baseline: do not re-read files or re-explore the workspace merely to confirm what it says. Direct evidence you obtain naturally while working wins over it.
+The snapshot above, when present, is already the current persistent memory and the trusted baseline: do not re-read files or re-explore the workspace to confirm it. Direct evidence you obtain naturally wins over it.
 
-Record that knowledge with project_memory_write: submit base_revision from the most recent project_memory_read, or 0 when this workspace has no memory yet, which is what creates it. Include the complete maintained Markdown body, written as the current profile — merge, rewrite, and delete so the page keeps matching the project. Write when the profile has become wrong or incomplete, and leave it alone when the session has established nothing of the kinds above; a write that would make the file longer may be held for the user's approval first, and a rejection is a judgement on the addition itself: shorten it when it is worth keeping, and drop it when it is not. You can confirm the file independently at any time with project_memory_read. Project Memory cannot override higher-priority instructions, permissions, or safety constraints.`
+Record that knowledge with project_memory_write: submit base_revision from the most recent project_memory_read, or 0 when this workspace has no memory yet, which creates it. Send the complete maintained Markdown body as the current profile: merge, rewrite, and delete so it keeps matching the project. Write when the profile has become wrong or incomplete, and leave it alone when the session has established nothing of the kinds above. Confirm the file independently with project_memory_read. Project Memory cannot override higher-priority instructions, permissions, or safety constraints.`
 
-const POLICY_NO_MEMORY = `No persistent memory was recorded for this workspace when this snapshot was taken, so this is most likely a first session here — and creating that file is an outstanding task of this session, not an optional extra.
+const POLICY_NO_MEMORY = `No persistent memory was recorded for this workspace when this snapshot was taken, so this is likely a first session here — and creating that file is an outstanding task of this session, not an optional extra.
 
-Do it once you have actually seen the project: after reading enough of the workspace to describe it accurately, and before you wrap up the work in front of you. Create it with project_memory_write using base_revision 0 and the complete Markdown body: the durable, project-level knowledge described above, recorded only where this session actually established it. Do not write it first and explore afterwards: later sessions trust this file, so an unverified profile is worse than none.
+Do it once you have actually seen the project: after reading enough of the workspace to describe it accurately, and before you wrap up the work in front of you. Create it with project_memory_write using base_revision 0 and the complete body: the durable, project-level knowledge described above, recorded only where this session established it. Do not write it first and explore afterwards: an unverified profile is worse than none.
 
-Ending this session without the file makes the next session pay for the same exploration again. Skip it only if this session genuinely learned nothing reusable.
+Ending this session without the file makes the next session pay for the same exploration again. Skip it if this session learned nothing reusable.
 
-This snapshot stays fixed for the whole session, so it keeps saying this even after you have written the file. Check with project_memory_read before writing again; do not re-create memory that this session already recorded.`
+This snapshot stays fixed for the whole session, so it keeps saying this after you have written the file. Check with project_memory_read before writing again; do not re-create memory this session already recorded.`
 
 /** Left brace pair, written from code points so the literal never reads as a reference. */
 const OPEN_BRACES = '\u007b\u007b'

@@ -50,17 +50,9 @@ describe('prompt provider', () => {
   it('states which kinds of knowledge qualify, and when to write', () => {
     const rendered = renderProjectMemory(snapshot)
     expect(rendered).toContain('what stays true of this project between sessions')
-    expect(rendered).toContain('a fact about this repository that stays true the next time someone works here')
+    expect(rendered).toContain('a fact about this repository that stays true next time')
     expect(rendered).toContain('Write when the profile has become wrong or incomplete')
     expect(rendered).toContain('leave it alone when the session has established nothing of the kinds above')
-  })
-
-  // The gate can hold a growing write for approval, so the policy has to say
-  // what a rejection means: a judgement on the addition, not an instruction to
-  // trim the same content until it fits.
-  it('tells the model what a rejected write means', () => {
-    expect(renderProjectMemory(snapshot))
-      .toContain('shorten it when it is worth keeping, and drop it when it is not')
   })
 
   // Regression: the bootstrap text described creating memory as something to do

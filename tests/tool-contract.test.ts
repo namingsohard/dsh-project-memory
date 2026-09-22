@@ -77,6 +77,17 @@ describe('tool contract', () => {
     expect(description).toContain('creates')
   })
 
+  // The gate can hold a growing write for approval, and the description is where
+  // the model decides how to react. It lives here rather than in the injected
+  // policy on purpose: the policy is already in context on every request, so a
+  // second copy of the same paragraph is paid for in every session's prompt.
+  it('tells the model what a rejected write means', () => {
+    const description = registered().get('project_memory_write')?.description ?? ''
+    expect(description).toContain('unfit for retention or overly lengthy')
+    expect(description).toContain('shorten and resubmit')
+    expect(description).toContain('do not rework for resubmission')
+  })
+
   it('asks for the whole body rather than a patch', () => {
     const description = property('project_memory_write', 'content')?.description
     expect(description).toContain('the whole profile as it should read now')
