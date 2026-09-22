@@ -1,16 +1,44 @@
+# Dependencies and regenerable output.
 node_modules/
 coverage/
-.audit/
 *.tgz
-.DS_Store
-REVIEW_AND_SMOKE_TEST.md
-PROJECT_NOTEBOOK.md
-RELEASING*.md
 
-# Local-only artifacts.
+# Hand-run verification harnesses: c2-c3-verify, runtime-harness*, repo-preflight,
+# the schema probes. They drive the built lib/ against a locally installed DSH
+# runtime, so they are local development tooling and not part of the published repo.
+# Their throwaway workspaces are created with mkdtemp in the system temp dir, so
+# nothing from a run ever lands here and no scratch pattern is needed.
+.audit/
+
+# State this plugin writes into whatever workspace it runs against. This checkout is
+# such a workspace, so project_memory_update creates .agent/MEMORY.md right here. It
+# is live state that sessions rewrite, not source, so tracking it would churn the
+# diff on ordinary work. It was briefly tracked; this rule is what keeps it out.
+.agent/
+
+# Local noise: debug.log plus any pnpm / npm / vitest failure dump.
+*.log
+# Only appears if someone turns on tsc incremental builds.
+*.tsbuildinfo
 .pnpm-store/
-debug.log
 pnpm-lock.yaml.bak
+
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Deliberately NOT ignored: REVIEW_AND_SMOKE_TEST.md, PROJECT_NOTEBOOK.md and
+# RELEASING*.md. Those three patterns used to sit in this file while the same paths
+# were also tracked. A pattern has no effect on a path already in the index, so the
+# rules were fiction -- the files were committed and pushed regardless, and README.md
+# and INSTALL.md link to them. They are published documentation on purpose, so they
+# stay tracked and the misleading rules are gone. If one ever really has to leave the
+# repository, `git rm --cached <path>` comes first and only then the pattern.
+#
+# .dsh/ is not ignored either: in a workspace that path holds shared project state
+# (dsh-skill-filesystem reads <projectRoot>/.dsh/skills), not local noise.
 
 # Not ignored: lib/ is committed on purpose.
 # DeepSeek Harness loads a plugin's built entry (`main: ./lib/index.js`) and never
