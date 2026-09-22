@@ -41,7 +41,7 @@ project_memory_update           磁盘上变成 revision N+1；本会话快照�
 
 ## 安装
 
-**尚未发布到 npm。** 从本仓库安装：
+**尚未发布到 npm。** 直接从本仓库安装：
 
 ```powershell
 dsh plugin --profile web add 'github:namingsohard/dsh-project-memory'
@@ -53,14 +53,26 @@ dsh plugin --profile web add 'github:namingsohard/dsh-project-memory'
 dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#<sha>'
 ```
 
-pnpm 可能在第一次安装时拒绝执行 Git 依赖的安装脚本，并打印需要放行的包名。遇到这种情况，把它加进**该 profile 的** `pnpm-workspace.yaml` 后重跑：
+本仓库提交了编译后的 `lib/`，所以安装不需要任何构建步骤；而且本包**没有声明任何安装期生命周期脚本**——pnpm 的构建脚本门禁不适用，直接 `add` 就应该成功。
+
+如果 pnpm 确实报了被拦下的构建脚本（例如你的 profile 只允许显式列出的包执行脚本），把它打印出的确切包键抄进**该 profile 的** `pnpm-workspace.yaml` 后重跑：
 
 ```yaml
 allowBuilds:
   dsh-project-memory: true
 ```
 
-这个授权等于允许该包的代码在安装时于你的机器上执行，且不在 agent 运行的任何沙箱之内——只对可信来源放开。
+这个授权等于允许该包的代码在安装时于你的机器上执行，且不在 agent 运行的任何沙箱之内。如果你不想给出这个授权，用下面的预构建 tarball——同样是这份代码，但完全不需要构建授权。
+
+### 预构建 tarball（无需构建授权）
+
+每个 [Release](https://github.com/namingsohard/dsh-project-memory/releases) 都会附带 `pnpm pack` 打出的压缩包：
+
+```powershell
+dsh plugin --profile web add D:/downloads/dsh-project-memory-0.1.0.tgz
+```
+
+tarball 安装带的是预构建代码，不需要 `allowBuilds` 条目，还能拿到带版本号的产物。它也是最接近 registry 安装体验的方式。
 
 **DSH Desktop 用户注意：** `desktop` profile 归 Electron 应用所有，CLI 明确拒绝操作它，所以请用 设置 → 插件 界面安装，而不是命令行。
 

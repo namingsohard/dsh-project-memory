@@ -41,7 +41,7 @@ Four design commitments shape the behaviour:
 
 ## Install
 
-**Not yet published to npm.** Install from this repository:
+**Not yet published to npm.** Install directly from this repository:
 
 ```powershell
 dsh plugin --profile web add 'github:namingsohard/dsh-project-memory'
@@ -53,14 +53,26 @@ The `github:` prefix is required — pnpm would accept a bare `owner/repo`, but 
 dsh plugin --profile web add 'github:namingsohard/dsh-project-memory#<sha>'
 ```
 
-pnpm may refuse a Git dependency's install scripts on the first attempt and print the package key to allow. If that happens, add it to the **profile's** `pnpm-workspace.yaml` and re-run:
+This repository commits its compiled `lib/`, so the install needs no build step, and the package declares **no install-time lifecycle script** — pnpm's build-script gate does not apply, and a plain `add` should just work.
+
+If pnpm does report a blocked build script (for example because your profile allows scripts only for explicitly listed packages), copy the exact package key it prints into the **profile's** `pnpm-workspace.yaml` and re-run:
 
 ```yaml
 allowBuilds:
   dsh-project-memory: true
 ```
 
-Treat that allowance as permission for the package's code to run on your machine at install time, outside any sandbox the agent runs in.
+Treat that allowance as permission for the package's code to run on your machine at install time, outside any sandbox the agent runs in. If you would rather not grant it, use the prebuilt tarball below instead — it installs the same code with no build permission at all.
+
+### Prebuilt tarball (no build permission)
+
+Each [release](https://github.com/namingsohard/dsh-project-memory/releases) attaches the packaged tarball that `pnpm pack` produces:
+
+```powershell
+dsh plugin --profile web add D:/downloads/dsh-project-memory-0.1.0.tgz
+```
+
+Tarball installs carry prebuilt code, need no `allowBuilds` entry, and give you a versioned artifact. They are also the closest thing to what a registry install would deliver.
 
 **DSH Desktop users:** the `desktop` profile is owned by the Electron app and the CLI refuses to touch it, so install through Settings → Plugins rather than the command line.
 

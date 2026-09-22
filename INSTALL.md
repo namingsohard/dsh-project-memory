@@ -46,7 +46,9 @@ plugin-manager: not a package name the registry accepts: namingsohard/dsh-projec
 
 A bare two-segment spec only matches DSH's hosted-repository rule when it starts with `http://` or `https://`.
 
-**A Git install fetches sources, not built artifacts.** This repository commits its compiled `lib/`, so the code that loads is the code that was reviewed. pnpm ≥ 10 may still refuse a Git dependency's install scripts on the first attempt; DSH prints the fix — copy the exact package key pnpm printed into the **profile's** `pnpm-workspace.yaml`:
+**A Git install fetches sources, not built artifacts.** This repository commits its compiled `lib/`, so the code that loads is the code that was reviewed. It also declares **no install-time lifecycle script** (`prepack` runs only on pack/publish), so pnpm's build-script gate should not trigger and a plain `add` should succeed.
+
+If pnpm does report a blocked build script — for example because your profile allows scripts only for explicitly listed packages — copy the exact package key it printed into the **profile's** `pnpm-workspace.yaml`:
 
 ```yaml
 allowBuilds:

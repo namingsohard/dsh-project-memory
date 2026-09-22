@@ -46,7 +46,9 @@ plugin-manager: not a package name the registry accepts: namingsohard/dsh-projec
 
 裸的双段 spec 只有在以 `http://` 或 `https://` 开头时才会命中 DSH 的托管仓库规则。
 
-**Git 安装取的是源码，不是构建产物。** 本仓库提交了编译后的 `lib/`，所以你加载的就是被审查过的代码。但 pnpm ≥ 10 仍可能在第一次安装时拒绝执行 Git 依赖的安装脚本；DSH 会打印修法——把 pnpm 打印的确切包键抄进**该 profile 的** `pnpm-workspace.yaml`：
+**Git 安装取的是源码，不是构建产物。** 本仓库提交了编译后的 `lib/`，所以你加载的就是被审查过的代码。本包也**没有声明安装期生命周期脚本**（`prepack` 只在 pack/publish 时运行），所以 pnpm 的构建脚本门禁不会触发，直接 `add` 应当成功。
+
+如果 pnpm 确实报了被拦下的构建脚本——例如你的 profile 只允许显式列出的包执行脚本——把它打印出的确切包键抄进**该 profile 的** `pnpm-workspace.yaml`：
 
 ```yaml
 allowBuilds:

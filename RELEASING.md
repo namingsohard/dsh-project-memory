@@ -42,7 +42,10 @@ pnpm typecheck
 pnpm test
 pnpm build          # must run after any src/ change, before committing
 pnpm pack           # prepack rebuilds; inspect the file list
+node .audit/repo-preflight.mjs   # local check of everything an installer relies on
 ```
+
+`repo-preflight.mjs` mirrors what DSH does to a GitHub or tarball install: it asserts the patch declaration is object-shaped, the patch parses and names the real package, the built entry and its relative imports are committed, `lib/` is tracked by git, and no `@deepseek-ai/*` runtime package leaked into `dependencies` where it would duplicate a host instance. It lives in `.audit/` because it hardcodes nothing about the machine — move it into `tests/` if you want it in CI.
 
 Confirm the tarball contains `lib/`, `cordis.patch.yml`, `README.md`, `README.zh-CN.md`, `INSTALL.md`, `INSTALL.zh-CN.md`, and `LICENSE`, and that `package.json` still declares:
 

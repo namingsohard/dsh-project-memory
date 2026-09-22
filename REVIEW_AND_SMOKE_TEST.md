@@ -66,7 +66,7 @@ plugin package.json dsh field: {"bundle":"./cordis.patch.yml"}
 shipped bundle dsh-base: dsh = {"bundle":{"patch":"./cordis.patch.yml"}}
 ```
 
-后果：当时的安装命令 `dsh plugin --profile web add file:<插件目录>` **不会装上任何东西**，而且看起来像“安装成功后又消失了”。这是当前唯一真正的安装阻断点——比 `@deepseek-ai/dsh@0.1.5-rc.2` 的 peer 解析问题更靠前，因为即使 CLI 能跑也用不了。
+后果：当时的安装命令 `dsh plugin --profile web add file:<插件目录>` **不会装上任何东西**，而且看起来像“安装成功后又消失了”。这是当时唯一真正的安装阻断点——比 `@deepseek-ai/dsh@0.1.5-rc.2` 的 peer 解析问题更靠前，因为即使 CLI 能跑也用不了。
 
 修法：改 `package.json`（同时建议给 `cordis.patch.yml` 加上用途注释）。
 
@@ -215,9 +215,11 @@ This snapshot stays fixed for the whole session, so it keeps saying this even af
 
 ## 二、中等问题
 
-### M1. `file:` 安装会引入插件自己的 `@deepseek-ai/dsh-tools` 副本（版本偏斜风险）
+### M1. `link:`/`file:` 安装会引入插件自己的 `@deepseek-ai/dsh-tools` 副本（版本偏斜风险）—— 已缓解
 
-`lib/tools.js:1` 运行时 `import { defineTool } from '@deepseek-ai/dsh-tools'`。作为 `file:` 依赖直连本仓库时，Node 会沿真实路径从本仓库的 `node_modules` 解析，那里是 **0.1.5-rc.2**，而 Desktop 运行时是 **0.1.6-alpha.2**。`peerDependencies` 同样限定 `^0.1.5-rc.2`。
+`lib/tools.js:1` 运行时 `import { defineTool } from '@deepseek-ai/dsh-tools'`。作为 `link:`（junction）依赖直连本仓库时，Node 会沿真实路径从本仓库的 `node_modules` 解析，当时那里是 **0.1.5-rc.2**，而 Desktop 运行时是 **0.1.6-alpha.2**。`peerDependencies` 当时同样限定 `^0.1.5-rc.2`。
+
+**现状：已缓解。** `devDependencies` 已对齐到 `0.1.6-alpha.2`（与 Desktop 运行时一致），`peerDependencies` 也改为显式版本列表。官方文档同时确认了这套解析规则的边界：node_modules 树中更近的物理包会先于更高层的 peer 声明生效。
 
 `defineTool` 只是产出普通对象，`ctx.tools.register()` 的检查（`dsh-tools/lib/index.js:2872-2881`）在新版本中依然宽松，所以**可能**能跑；但我已用一个探针（`.audit/schema-probe.mjs`）确认两个版本的 `defineTool` 对插件当前 schema 形状都接受（`oneOf`/`enum`/`additionalProperties` 均合法），却无法排除 Cordis/Service 实例不同源带来的隐患。若插件被注册和查询落在不同模块副本上，表现为“工具静默不出现”。
 
@@ -370,7 +372,7 @@ PASS  project_memory_read / _update / _refresh execute on the 0.1.6 runtime
 
 ### 0. 前置
 
-C1 已修复（`package.json` 的 `dsh.bundle` 现为对象形式），C2/C3 已修复并构建。开始前确认当前构建是最新的：
+C1 已修复（`package.json` 的 `dsh.bundle` 现为对象形式），C2/C3/C4 已修复并构建。开始前确认当前构建是最新的：
 
 ```powershell
 cd <本仓库>
@@ -385,7 +387,7 @@ pnpm build
 | B. 装 npm 上的 `@deepseek-ai/dsh@0.1.5-rc.2` | 交接单所述的安装失败：该版本会解析到未发布的 `dsh-client-ui-sidebar-documentpreview@^0.1.5-rc.3`。可用 `pnpm.overrides` 强制成已发布版本（见第 13 步），但没必要——它比 A 更旧。 |
 | C. 直接给 Desktop GUI 的 profile 装插件 | 等价于 A，只是入口是 GUI 的插件管理界面（`dsh-client-ui-settings-plugins`）。 |
 
-需要注意：**插件本地 `node_modules` 里的 `@deepseek-ai/*` 是 `0.1.5-rc.2`，profile 里的是 `0.1.6-alpha.2`**（见 §M1）。第一次烟测务必用 `pnpm add file:...`（不是 `link:`），让它解析到 profile 里的共享副本。
+需要注意：当时**插件本地 `node_modules` 里的 `@deepseek-ai/*` 是 `0.1.5-rc.2`，profile 里的是 `0.1.6-alpha.2`**（见 §M1）。该偏斜现已通过对齐 `devDependencies` 缓解。
 
 ### 2. 安装并确认 profile 已被改写
 
