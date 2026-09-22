@@ -3,6 +3,9 @@ export interface Config {
     maxMemoryBytes: number;
     lockTimeoutMs: number;
     staleLockMs: number;
+    requireApproval: boolean;
+    approvalGrowthBytes: number;
+    approvalWatermarkPercent: number;
 }
 export declare const DEFAULT_CONFIG: Config;
 export declare const Config: Schema<Config>;

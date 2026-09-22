@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
+import { registerMemoryApprovalGate } from './approval-gate.js'
 import { Config as ConfigSchema, resolveConfig, type Config as ProjectMemoryConfig } from './config.js'
 import { ProjectMemoryStore } from './memory-store.js'
 import { addProjectMemorySection } from './prompt-provider.js'
@@ -17,9 +18,11 @@ export { SnapshotManager } from './snapshot-manager.js'
 export { parseMemoryFile, serializeMemoryFile } from './memory-format.js'
 
 export function apply(ctx: Context, config?: Partial<ProjectMemoryConfig>): void {
-  const store = new ProjectMemoryStore(resolveConfig(config))
+  const resolved = resolveConfig(config)
+  const store = new ProjectMemoryStore(resolved)
   const snapshots = new SnapshotManager(store)
   registerMemoryTools(ctx, store, snapshots)
+  registerMemoryApprovalGate(ctx, store, resolved)
 
   ctx.on('system-prompt/assemble', async (assembly, assembleContext, next) => {
     const transformed = await next()

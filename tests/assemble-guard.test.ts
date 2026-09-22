@@ -116,7 +116,7 @@ describe('assembly degradation', () => {
     ])
     expect(section?.text).toContain('<PROJECT_MEMORY_POLICY>')
     expect(section?.text).toContain('first session')
-    expect(section?.text).toContain('project_memory_update')
+    expect(section?.text).toContain('project_memory_write')
     expect(section?.text).not.toContain('<PROJECT_MEMORY revision')
     expect(warnings).toEqual([])
   })

@@ -36,11 +36,31 @@ describe('prompt provider', () => {
   it('always injects the policy, even before any memory exists', () => {
     const rendered = renderProjectMemory(snapshotWith(''))
     expect(rendered).toContain('<PROJECT_MEMORY_POLICY>')
-    expect(rendered).toContain('project_memory_update')
+    expect(rendered).toContain('project_memory_write')
     expect(rendered).toContain('first session')
     expect(rendered).toContain('base_revision 0')
     expect(rendered).toContain('project_memory_read before writing again')
     expect(rendered).not.toContain('<PROJECT_MEMORY revision')
+  })
+
+  // The policy used to define memory by what it is not (a scratchpad, a session
+  // summary, a changelog). It now names the qualifying kinds and the test every
+  // entry must pass, which is what keeps a session's own incidents and its
+  // environment trivia out of a profile every later session has to read.
+  it('states which kinds of knowledge qualify, and when to write', () => {
+    const rendered = renderProjectMemory(snapshot)
+    expect(rendered).toContain('what stays true of this project between sessions')
+    expect(rendered).toContain('a fact about this repository that stays true the next time someone works here')
+    expect(rendered).toContain('Write when the profile has become wrong or incomplete')
+    expect(rendered).toContain('leave it alone when the session has established nothing of the kinds above')
+  })
+
+  // The gate can hold a growing write for approval, so the policy has to say
+  // what a rejection means: a judgement on the addition, not an instruction to
+  // trim the same content until it fits.
+  it('tells the model what a rejected write means', () => {
+    expect(renderProjectMemory(snapshot))
+      .toContain('shorten it when it is worth keeping, and drop it when it is not')
   })
 
   // Regression: the bootstrap text described creating memory as something to do

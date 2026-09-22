@@ -35,7 +35,7 @@ function registered(): Map<string, ToolDef> {
   return tools
 }
 
-// Regression: `project_memory_update` is also the create path, but its
+// Regression: `project_memory_write` is also the create path, but its
 // model-visible description only spoke of replacing and preserving an existing
 // body. A model holding an empty workspace found no tool telling it that this is
 // the tool that creates the file, so the first revision never got written.
@@ -44,32 +44,42 @@ describe('tool contract', () => {
     expect([...registered().keys()].sort()).toEqual([
       'project_memory_read',
       'project_memory_refresh',
-      'project_memory_update',
+      'project_memory_write',
     ])
   })
 
   it('names creation in the update description', () => {
-    const description = registered().get('project_memory_update')?.description ?? ''
+    const description = registered().get('project_memory_write')?.description ?? ''
     expect(description).toContain('only write path')
-    expect(description).toContain('creates the file as well as maintaining it')
-    expect(description).toContain('0 when no memory exists yet')
+    expect(description).toContain('the tool that creates it')
+    expect(description).toContain('base_revision 0 writes a workspace\'s first revision')
   })
 
-  it('keeps the anti-changelog and snapshot rules in the update description', () => {
-    const description = registered().get('project_memory_update')?.description ?? ''
-    expect(description).toContain('not a changelog')
+  // Regression: the description used to invite an update whenever a session had
+  // learned anything at all, which is how a current profile turns into an
+  // append-only log. The bar and the "otherwise leave it alone" clause are the
+  // constraint that keeps a session from writing on every pass.
+  it('states when the write tool is worth calling', () => {
+    const description = registered().get('project_memory_write')?.description ?? ''
+    expect(description).toContain('Call it only when the session established durable, project-level knowledge')
+    expect(description).toContain('otherwise leave the file alone')
+  })
+
+  it('keeps the current-profile and snapshot rules in the update description', () => {
+    const description = registered().get('project_memory_write')?.description ?? ''
+    expect(description).toContain('one current page with stale entries rewritten or deleted')
     expect(description).toContain('does not change this session')
   })
 
   it('tells the model base_revision 0 creates the first revision', () => {
-    const description = property('project_memory_update', 'base_revision')?.description
+    const description = property('project_memory_write', 'base_revision')?.description
     expect(description).toContain('0')
     expect(description).toContain('creates')
   })
 
   it('asks for the whole body rather than a patch', () => {
-    const description = property('project_memory_update', 'content')?.description
-    expect(description).toContain('whole profile, not a patch')
+    const description = property('project_memory_write', 'content')?.description
+    expect(description).toContain('the whole profile as it should read now')
     expect(description).toContain('without revision frontmatter')
   })
 })

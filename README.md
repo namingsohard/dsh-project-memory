@@ -24,7 +24,7 @@ System prompt                   <PROJECT_MEMORY revision="N"> + policy
 Agent ──► works normally, or uses the snapshot directly as trusted background
         │
         ▼
-project_memory_update           revision N+1 on disk; this session's snapshot stays N
+project_memory_write            revision N+1 on disk; this session's snapshot stays N
 ```
 
 Four design commitments shape the behaviour:
@@ -101,9 +101,10 @@ There is no memory file yet, so the Agent receives the policy plus bootstrap gui
 
 ```
 <PROJECT_MEMORY_POLICY>
-Project Memory (<workspace>/.agent/MEMORY.md) caches reusable, project-level knowledge ...
+Project Memory (<workspace>/.agent/MEMORY.md) holds what stays true of this project between
+sessions and is worth a later session's context: ...
 The snapshot above, when present, is already the current persistent memory. ...
-Record new knowledge with project_memory_update: ...
+Record that knowledge with project_memory_write: ...
 
 No persistent memory was recorded for this workspace when this snapshot was taken, so this is
 most likely a first session here — and creating that file is an outstanding task of this
@@ -111,10 +112,10 @@ session, not an optional extra.
 
 Do it once you have actually seen the project: after reading enough of the workspace to
 describe it accurately, and before you wrap up the work in front of you. Create it with
-project_memory_update using base_revision 0 and the complete Markdown body — what the project
-is, how it is organized, the conventions it follows, and how it is built and run. Do not write
-it first and explore afterwards: later sessions trust this file, so an unverified profile is
-worse than none.
+project_memory_write using base_revision 0 and the complete Markdown body: the durable,
+project-level knowledge described above, recorded only where this session actually established
+it. Do not write it first and explore afterwards: later sessions trust this file, so an
+unverified profile is worse than none.
 
 Ending this session without the file makes the next session pay for the same exploration
 again. Skip it only if this session genuinely learned nothing reusable.
@@ -127,7 +128,9 @@ that this session already recorded.
 
 The policy is injected for every assembly with a resolvable workspace. Only the content block depends on there being something to show, because the policy is what tells the Agent this mechanism exists at all — gating it on existing content would hide Project Memory from exactly the session that has to create it first.
 
-Nothing in the plugin performs that first write: the only write path is the model calling `project_memory_update`. That is why the bootstrap text is phrased as an obligation with a completion condition rather than an option, and why the update tool's own description names creation — a session that finishes its task without writing leaves the next one to repeat the whole exploration.
+The policy is also where the bar for writing lives: it names the kinds of knowledge that qualify (what the project is, how it is laid out, the conventions the code follows, the commands that build and run it, the constraints a change must respect) and states the test every entry passes — a fact about the repository that is still true next session. Keeping that bar explicit is what stops a profile from absorbing each session's own incidents, and it is why the write tool's description says to leave the file alone when a session established nothing of those kinds.
+
+Nothing in the plugin performs that first write: the only write path is the model calling `project_memory_write`. That is why the bootstrap text is phrased as an obligation with a completion condition rather than an option, and why the write tool's own description names creation — a session that finishes its task without writing leaves the next one to repeat the whole exploration.
 
 ### Later sessions
 
@@ -147,7 +150,7 @@ Nothing in the plugin performs that first write: the only write path is the mode
 | Tool | Purpose |
 | --- | --- |
 | `project_memory_read` | Reads the latest persistent file and reports whether the caller's snapshot is stale. Does **not** refresh the snapshot. |
-| `project_memory_update` | The only write path, and also the create path: `base_revision` (`0` when nothing exists yet) plus the complete Markdown body. Writes only when the revision still matches and the normalized body changed. Does **not** mutate the current snapshot. |
+| `project_memory_write` | The only write path, and also the create path: `base_revision` (`0` when nothing exists yet) plus the complete Markdown body. Writes only when the revision still matches and the normalized body changed. Asks for human approval when the write would grow the stored profile (see [Approval gate](#approval-gate)). Does **not** mutate the current snapshot. |
 | `project_memory_refresh` | Replaces only the caller's Session snapshot. The next model step receives it. |
 
 Updates are serialized across processes with an on-disk lock and use optimistic revision control. On conflict the tool returns the latest revision and content instead of overwriting another session's work, so two sessions writing at once cannot silently lose knowledge.
@@ -163,9 +166,37 @@ Override the inserted row in the profile's `cordis.patch.yml`:
     maxMemoryBytes: 49152
     lockTimeoutMs: 5000
     staleLockMs: 30000
+    requireApproval: true
+    approvalGrowthBytes: 1024
+    approvalWatermarkPercent: 80
 ```
 
 A patch replaces a row's entire `config`, so restate every key you want to keep.
+
+### Approval gate
+
+A profile that only ever grows stops being a profile, so an update that would make the stored memory longer has to be approved by a person:
+
+- The **first write** of a workspace is never gated. Creating the file cannot make it longer, and gating it would hide the mechanism from exactly the session the policy asks to create it.
+- A rewrite that **does not grow** the stored body is never gated either. Rewriting, sharpening, and deleting stale facts is the behaviour the plugin wants, so it carries no friction.
+- Growth up to `approvalGrowthBytes` (default 1 KB) is accepted silently.
+- Any update whose result would exceed `approvalWatermarkPercent` (default 80%) of `maxMemoryBytes` asks, however small its growth — that is the slow accumulation a per-update growth budget alone cannot catch.
+
+The prompt is the harness's own approval UI, driven by a `tools/pre-execute` decision, so it shows the call and this reason:
+
+```
+Rewrite this workspace's Project Memory: 2 KB of 48 KB, this update adds 6 KB
+(over the 1 KB silent-growth budget). Model's note: "recorded the release
+checklist". Approve?
+```
+
+Denying, cancelling, or having no reachable approver fails the call **before** the body runs, so the stored profile keeps its old revision and the model sees the harness's rejection. Every ask and outcome is recorded on the session as `approval/asked` / `approval/decided`.
+
+A rejection is a judgement on the addition, and the model is told so: the write tool's description and the injected policy both say to assess eligibility — shorten and resubmit when the addition is worth keeping but too long, and leave it out when it is not. Trimming content a person just rejected back under the growth budget is a back door the gate does not close by itself: it is closed by that instruction, and by the person seeing the file again the next time it grows.
+
+The gate stays out of the way where no human could be asked, because the harness fails closed on an unroutable ask — a plugin that always asked would silently block all memory writes after the first. Three cases skip it: a deployment that composes no approval service, a session whose effective approval policy is `never`, and delegated child sessions (which share the workspace but may not be able to route a prompt to a UI). Set `requireApproval: false` to drop the gate everywhere.
+
+Approval is a policy lever, not a safety boundary: `maxMemoryBytes` still caps the file no matter what anyone approves.
 
 ## Memory format
 
@@ -196,10 +227,11 @@ Project Memory is a trusted project-knowledge baseline, but it cannot override h
 
 ## Compatibility notes
 
-The plugin uses only cross-line API surface: the `system-prompt/assemble` waterfall, `Context.tools.register`, `defineTool`, and `Agent.session` (`header.cwd`, `firstLiveSeq`, `surface.replaceGeneration`). It avoids newer-only options so one build serves both lines:
+The plugin uses only cross-line API surface: the `system-prompt/assemble` and `tools/pre-execute` waterfalls, `Context.tools.register`, `defineTool`, and `Agent.session` (`header.cwd`, `firstLiveSeq`, `surface.replaceGeneration`, `header.origin`/`delegationDepth`). It avoids newer-only options so one build serves both lines:
 
 - Brace pairs are rewritten before injection instead of relying on the `interpolate: false` section flag, which exists only from `0.1.6-alpha.2`.
 - The assembly listener declares both leading parameters and reads the agent from `context.agent`, which both lines populate.
+- The approval gate returns only `allow` (via `next()`) or `{ kind: 'ask' }` from `tools/pre-execute`. Both exist from `0.1.5-rc.1`, and the approval service itself is consumed by the tool registry, so the plugin takes no dependency on it: `@deepseek-ai/dsh-user-approval` is resolved opportunistically with `ctx.get('approval')`, exactly as the registry does.
 
 `peerDependencies` spell out the supported versions rather than using a caret range:
 
@@ -211,7 +243,7 @@ npm/pnpm semver does not let a prerelease satisfy a range that lacks a prereleas
 
 ## Relationship to other DSH memory plugins
 
-Several plugins in this space overlap, and they make different choices. This one is distinctive in three ways: memory is a plain Markdown file you can read and edit by hand; the Agent maintains it directly rather than routing proposals through human approval; and the injected snapshot is deliberately fixed for a session while explicit tools control when it refreshes. If you want approval-gated writes, storage-backed records, or semantic recall, one of the others may fit better.
+Several plugins in this space overlap, and they make different choices. This one is distinctive in three ways: memory is a plain Markdown file you can read and edit by hand; the Agent maintains it directly, asking a person only when an update would grow the profile past its budgets; and the injected snapshot is deliberately fixed for a session while explicit tools control when it refreshes. If you want every write approved, storage-backed records, or semantic recall, one of the others may fit better.
 
 ## Development
 
