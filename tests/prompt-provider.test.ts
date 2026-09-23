@@ -46,13 +46,15 @@ describe('prompt provider', () => {
   // The policy used to define memory by what it is not (a scratchpad, a session
   // summary, a changelog). It now names the qualifying kinds and the test every
   // entry must pass, which is what keeps a session's own incidents and its
-  // environment trivia out of a profile every later session has to read.
-  it('states which kinds of knowledge qualify, and when to write', () => {
+  // environment trivia out of a profile every later session has to read. The
+  // restraint half — when it is worth calling the tool at all — lives only in
+  // the tool's own description, at the point where the call is being composed.
+  it('states which kinds of knowledge qualify, and points at the tool', () => {
     const rendered = renderProjectMemory(snapshot)
     expect(rendered).toContain('what stays true of this project between sessions')
     expect(rendered).toContain('a fact about this repository that stays true next time')
-    expect(rendered).toContain('Write when the profile has become wrong or incomplete')
-    expect(rendered).toContain('leave it alone when the session has established nothing of the kinds above')
+    expect(rendered).toContain('whose own description carries the argument, approval, and rejection rules')
+    expect(rendered).toContain('call project_memory_read first for the revision to submit')
   })
 
   // Regression: the bootstrap text described creating memory as something to do
@@ -78,16 +80,28 @@ describe('prompt provider', () => {
     const rendered = renderProjectMemory(snapshot)
     expect(rendered).toContain('already the current persistent memory')
     expect(rendered).toContain('do not re-read files or re-explore the workspace')
+    // This is the policy's only re-arm signal: a trusted baseline that says only
+    // "trust me" teaches the model to keep silent when it finds the profile
+    // wrong, and naming no action leaves "noting the contradiction" as the most
+    // it can do. So the contradiction clause has to name the write.
+    expect(rendered).toContain('If direct evidence contradicts it, write the correction with project_memory_write')
     expect(rendered).not.toContain('first session')
   })
 
-  // The shared policy used to say "base_revision from the most recent
-  // project_memory_read" only, which has no answer in a workspace where nothing
-  // has ever been written. It now names 0 as the create path, so the same
-  // instruction is executable from either side of the first write.
-  it('names base_revision 0 as the create path in the shared policy', () => {
-    expect(renderProjectMemory(snapshot)).toContain('or 0 when this workspace has no memory yet')
-    expect(renderProjectMemory(snapshotWith(''))).toContain('or 0 when this workspace has no memory yet')
+  // The shared policy used to restate the write's whole argument contract: where
+  // base_revision comes from, that 0 creates, that the body is complete and must
+  // be merged rather than appended. Three copies existed — here, in the tool
+  // description, and in the parameter descriptions — so drift was guaranteed,
+  // and one phrasing had already drifted. The policy now names the tool and the
+  // one ordering rule it owns (read before writing), and the create path is
+  // spelled out where it is actually needed: the bootstrap text of a workspace
+  // that has nothing stored yet.
+  it('delegates the write contract to the tool description', () => {
+    const rendered = renderProjectMemory(snapshot)
+    expect(rendered).toContain('project_memory_read first')
+    expect(rendered).not.toContain('merge, rewrite, and delete')
+    expect(rendered).not.toContain('Confirm the file independently')
+    expect(renderProjectMemory(snapshotWith(''))).toContain('base_revision 0')
   })
 
   it('inserts the policy-only section before the deployment persona suffix', () => {

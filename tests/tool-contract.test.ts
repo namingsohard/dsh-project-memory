@@ -85,7 +85,22 @@ describe('tool contract', () => {
     const description = registered().get('project_memory_write')?.description ?? ''
     expect(description).toContain('unfit for retention or overly lengthy')
     expect(description).toContain('shorten and resubmit')
-    expect(description).toContain('do not rework for resubmission')
+  })
+
+  // Regression: the rejection instruction used to end in "otherwise, do not
+  // rework for resubmission" — no object, no time bound. The tool takes the
+  // whole body, so every later write is textually a superset of a rejected one,
+  // and an unbounded clause reads as a ban on the rest of the session: a
+  // workspace that genuinely changes after a rejection (a new directory, a
+  // renamed command) never got its correction written. The verdict is now named
+  // as one on the submitted body, in the same sentence that carries the
+  // back-door rule the open-ended clause had been holding up.
+  it('bounds a rejection to the body it judged', () => {
+    const description = registered().get('project_memory_write')?.description ?? ''
+    expect(description).toContain('That verdict is on the body you submitted, not on this session')
+    expect(description).toContain('a new fact that qualifies still gets written')
+    expect(description).toContain('Never trim an addition merely to stay under the approval budget')
+    expect(description).not.toContain('do not rework for resubmission')
   })
 
   it('asks for the whole body rather than a patch', () => {

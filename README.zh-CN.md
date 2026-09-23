@@ -104,7 +104,9 @@ tarball 安装、本地开发安装和卸载步骤见 [INSTALL.md](INSTALL.md)�
 Project Memory (<workspace>/.agent/MEMORY.md) holds what stays true of this project between
 sessions and is worth a later session's context: ...
 The snapshot above, when present, is already the current persistent memory. ...
-Record that knowledge with project_memory_write: ...
+Record it with project_memory_write, whose own description carries the argument, approval, and
+rejection rules; call project_memory_read first for the revision to submit. Project Memory cannot
+override higher-priority instructions, permissions, and safety constraints.
 
 No persistent memory was recorded for this workspace when this snapshot was taken, so this is
 most likely a first session here — and creating that file is an outstanding task of this
@@ -192,7 +194,7 @@ checklist". Approve?
 
 拒绝、取消，或找不到可路由的审批方，都会在**工具体执行之前**让这次调用失败，所以已存画像保留原有 revision，模型收到的是 harness 给出的拒绝结论。每次询问与结果都会以 `approval/asked` / `approval/decided` 记入会话。
 
-拒绝是针对"这次新增内容"的判断，模型也会被告知这一点：写入工具的 description 与注入的 policy 都要求它自己评估资格——内容值得留但太长就精简后重交，不值得留就别改头换面再交一次。把刚被拒的内容删两句、压到增量预算以内再提交，是门禁本身不拦的后门：拦住它的是这条指令，以及下次文件变长时用户会再次看到它。
+拒绝是对"这次提交的这篇 body"的判断，模型也会被告知这一点——而且只由写入工具的 description 告知，注入的 policy 刻意只留一个指向它的指针：自己评估这篇 body 的资格，值得留但太长就精简后重交，不值得留就别交。裁决的范围是这篇 body，而不是整个会话，这个区别是承重的：工具接收的是整篇画像，所以之后任何一次写入在文本上都是被拒那篇的超集，一句不设边界的"别再重交"会让之后真的发生了变化的工作区永远得不到更正。把刚被拒的内容删两句、压到增量预算以内再提交，依然是门禁本身不拦的后门：拦住它的是 description 里那句 `Never trim an addition merely to stay under the approval budget`，以及下次文件变长时用户会再次看到它。
 
 在没人可问的地方，门禁会主动让开——因为 harness 对无法路由的询问是 fail-closed 的，一个"永远询问"的插件会把首次之后的全部记忆写入静默封死。三种情况跳过门禁：没有组合审批服务的部署、会话的有效审批策略为 `never`、以及被委派的子会话（它们共享同一工作区，但未必能把询问送达到 UI）。把 `requireApproval` 设为 `false` 可以在所有地方关掉门禁。
 

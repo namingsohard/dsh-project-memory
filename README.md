@@ -104,7 +104,9 @@ There is no memory file yet, so the Agent receives the policy plus bootstrap gui
 Project Memory (<workspace>/.agent/MEMORY.md) holds what stays true of this project between
 sessions and is worth a later session's context: ...
 The snapshot above, when present, is already the current persistent memory. ...
-Record that knowledge with project_memory_write: ...
+Record it with project_memory_write, whose own description carries the argument, approval, and
+rejection rules; call project_memory_read first for the revision to submit. Project Memory cannot
+override higher-priority instructions, permissions, and safety constraints.
 
 No persistent memory was recorded for this workspace when this snapshot was taken, so this is
 most likely a first session here — and creating that file is an outstanding task of this
@@ -192,7 +194,7 @@ checklist". Approve?
 
 Denying, cancelling, or having no reachable approver fails the call **before** the body runs, so the stored profile keeps its old revision and the model sees the harness's rejection. Every ask and outcome is recorded on the session as `approval/asked` / `approval/decided`.
 
-A rejection is a judgement on the addition, and the model is told so: the write tool's description and the injected policy both say to assess eligibility — shorten and resubmit when the addition is worth keeping but too long, and leave it out when it is not. Trimming content a person just rejected back under the growth budget is a back door the gate does not close by itself: it is closed by that instruction, and by the person seeing the file again the next time it grows.
+A rejection is a judgement on the submitted body, and the model is told so — by the write tool's description alone, since the injected policy deliberately keeps only a pointer to it: assess the body's eligibility, shorten and resubmit when it is worth keeping but too long, and leave it out when it is not. The verdict is scoped to that body rather than to the session, and that distinction is load-bearing: the tool takes the whole profile, so every later write is textually a superset of a rejected one, and an open-ended "do not resubmit" would leave a workspace that genuinely changes afterwards uncorrected. Trimming content a person just rejected back under the growth budget is still a back door the gate does not close by itself: it is closed by the description's own `Never trim an addition merely to stay under the approval budget`, and by the person seeing the file again the next time it grows.
 
 The gate stays out of the way where no human could be asked, because the harness fails closed on an unroutable ask — a plugin that always asked would silently block all memory writes after the first. Three cases skip it: a deployment that composes no approval service, a session whose effective approval policy is `never`, and delegated child sessions (which share the workspace but may not be able to route a prompt to a UI). Set `requireApproval: false` to drop the gate everywhere.
 
