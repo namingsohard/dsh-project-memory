@@ -36,7 +36,7 @@ project_memory_write            磁盘上变成 revision N+1；本会话快照�
 
 ## 环境要求
 
-- DeepSeek Harness `0.1.5-rc.1` 至 `0.1.6-alpha.2`（已在 DSH Desktop 自带的 `0.1.6-alpha.2` 运行时的实测通过，也在 `0.1.5-rc.2` 线上通过）
+- DeepSeek Harness `0.1.5-rc.1` 至 `0.1.7-rc.2` —— 该区间内每个已发布版本都通过类型检查，并在真实的工具注册表与 prompt 渲染器上启动过；区间两端还额外跑通了完整测试套件
 - Node.js 22 或更高
 
 ## 安装
@@ -234,14 +234,16 @@ Project Memory 是可信的项目认知基线，但**不能**覆盖更高优先�
 - 花括号对在注入前被改写，而不是依赖 `interpolate: false` 段落标志——后者只有 `0.1.6-alpha.2` 起才存在。
 - 注入监听器声明了前两个参数，并从 `context.agent` 取 agent，两条线都会填充它。
 - 审批门禁只从 `tools/pre-execute` 返回 `allow`（经由 `next()`）或 `{ kind: 'ask' }`，两者自 `0.1.5-rc.1` 起就已存在；审批服务本身由工具注册表消费，所以插件对它没有依赖：`@deepseek-ai/dsh-user-approval` 是通过 `ctx.get('approval')` 机会式读取的，与注册表的做法一致。
+- `src/` 里没有任何地方引用 `@deepseek-ai/schemastery` 的类型，导出的 `Config` schema 也刻意不写类型标注。一个 bundle 里可能同时存在两份 schemastery —— harness 按它自己的 range 解析，插件按插件的解析 —— 而 `Schema<Config>` 这种标注无法跨副本统一。它本来也不需要：cordis 通过结构化的 `~standard` 接口校验 `Config`，schemastery 又用全局 `Symbol.for('schemastery')` 打标，所以两份副本在运行时可以互通。
+- `0.1.7` 新增的是插件用不到的表面，而非插件依赖的表面：`ask` 决策上的 `displayReason`、工具定义上的 `projectContent` 与 `deferLoading`，以及可选的 `@deepseek-ai/dsh-workspace` peer。`system-prompt/assemble` 与 `tools/pre-execute` 的契约、`defineTool`、`Agent.session` 上的字段在整个区间内都没有变化，所以一份构建服务全部版本。
 
 `peerDependencies` 逐个列出支持版本，而不是用 caret range：
 
 ```
-0.1.5-rc.1 || 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2
+0.1.5-rc.1 || 0.1.5-rc.2 || 0.1.5-rc.3 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
 ```
 
-npm/pnpm 的 semver 不允许预发布版本满足一个缺少同 `[major, minor, patch]` 预发布的 range，所以 `^0.1.5-rc.2` 会静默排除掉 `0.1.6-alpha.2`。
+npm/pnpm 的 semver 不允许预发布版本满足一个缺少同 `[major, minor, patch]` 预发布的 range，所以 `^0.1.5-rc.2` 会静默排除掉 `0.1.6-alpha.2` 以及之后的每个预发布版本。相反，`@deepseek-ai/schemastery` 用的是 `^3.18.2`，因为 schemastery 发布的是稳定版本：caret 让 harness 与插件可以共用同一份副本，而写死精确版本时，只要 harness 解析得更靠前就会被强行装上第二份。
 
 ## 与其他 DSH 记忆插件的关系
 
