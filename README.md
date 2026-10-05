@@ -36,7 +36,7 @@ Four design commitments shape the behaviour:
 
 ## Requirements
 
-- DeepSeek Harness `0.1.5-rc.1` through `0.1.7-rc.2` — every published version in that range is type-checked and booted against the real tool registry and prompt renderer, and both ends of it additionally run the full test suite
+- DeepSeek Harness `0.1.5-rc.1` through `0.2.1-alpha.1` — every published version in that range is type-checked and booted against the real tool registry and prompt renderer, and both ends of it additionally run the full test suite
 - Node.js 22 or newer
 
 ## Install
@@ -235,15 +235,15 @@ The plugin uses only cross-line API surface: the `system-prompt/assemble` and `t
 - The assembly listener declares both leading parameters and reads the agent from `context.agent`, which both lines populate.
 - The approval gate returns only `allow` (via `next()`) or `{ kind: 'ask' }` from `tools/pre-execute`. Both exist from `0.1.5-rc.1`, and the approval service itself is consumed by the tool registry, so the plugin takes no dependency on it: `@deepseek-ai/dsh-user-approval` is resolved opportunistically with `ctx.get('approval')`, exactly as the registry does.
 - Nothing in `src/` names a type from `@deepseek-ai/schemastery`, and the exported `Config` schema is left un-annotated. A bundle can resolve two copies of schemastery at once — the harness takes its own range, the plugin its own — and a `Schema<Config>` annotation does not unify across copies. It is unnecessary anyway: cordis validates `Config` through the structural `~standard` interface, and schemastery brands instances with the global `Symbol.for('schemastery')`, so copies interoperate at runtime.
-- `0.1.7` adds surface the plugin ignores rather than surface it depends on: a `displayReason` on the `ask` decision, `projectContent` and `deferLoading` on tool definitions, and an optional `@deepseek-ai/dsh-workspace` peer. The `system-prompt/assemble` and `tools/pre-execute` contracts, `defineTool`, and the `Agent.session` fields are unchanged across the whole range, so one build serves all of it.
+- `0.1.7` and `0.2` add surface the plugin ignores rather than surface it depends on: a `displayReason` on the `ask` decision, `projectContent` and `deferLoading` on tool definitions, an optional `@deepseek-ai/dsh-workspace` peer, and a `ToolCallRecovery` export on `dsh-session`. Between `0.1.7-rc.2` and `0.2.1-alpha.1` the declarations for the four packages the plugin uses differ only in comments; the `system-prompt/assemble` and `tools/pre-execute` contracts, `defineTool`, and the `Agent.session` fields — including how `header.cwd` is validated and inherited across a fork — are unchanged, so one build serves all of it.
 
 `peerDependencies` spell out the supported versions rather than using a caret range:
 
 ```
-0.1.5-rc.1 || 0.1.5-rc.2 || 0.1.5-rc.3 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+0.1.5-rc.1 || 0.1.5-rc.2 || 0.1.5-rc.3 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2 || 0.2.0-rc.1 || 0.2.0-rc.2 || 0.2.1-alpha.1
 ```
 
-npm/pnpm semver does not let a prerelease satisfy a range that lacks a prerelease of the same `[major, minor, patch]`, so `^0.1.5-rc.2` would silently exclude `0.1.6-alpha.2` and every later prerelease. The `@deepseek-ai/schemastery` dependency is `^3.18.2`, by contrast, because schemastery ships stable releases: the caret lets one copy serve the harness and the plugin, where an exact pin would force a second copy alongside a harness that resolved further.
+npm/pnpm semver does not let a prerelease satisfy a range that lacks a prerelease of the same `[major, minor, patch]`, so `^0.1.5-rc.2` would silently exclude `0.1.6-alpha.2` and every later prerelease. The same rule reaches the two ranges the harness resolves rather than names, and each carries a second alternative to say what a release actually runs: `@deepseek-ai/schemastery` is `^3.18.2 || ^3.18.5-alpha.1` because `0.2.1-alpha.1` runs schemastery `3.18.5-alpha.1`, and `@deepseek-ai/cordis` is `^4.0.2 || ^4.0.5-alpha.1` because it runs cordis `4.0.5-alpha.1`. On schemastery the difference is measurable: with `^3.18.2` alone, an install against `0.2.1-alpha.1` puts a second copy of schemastery under `dsh-project-memory/node_modules/` beside the harness's, which is what an exact pin did in every bundle before it. pnpm resolves the cordis peer to the harness's copy either way, so that wider range is about declaring the truth — npm's peer resolution does not tolerate the narrow one. Either copy would still work, and only because nothing in `src/` names a schemastery type.
 
 ## Relationship to other DSH memory plugins
 

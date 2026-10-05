@@ -22,9 +22,45 @@ const SUPPORTED = [
   '0.1.7-alpha.2',
   '0.1.7-rc.1',
   '0.1.7-rc.2',
+  '0.2.0-rc.1',
+  '0.2.0-rc.2',
+  '0.2.1-alpha.1',
 ].join(' || ')
 
 const PACKAGES = ['@deepseek-ai/dsh-agent', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/dsh-tools']
+
+/**
+ * The cordis and schemastery versions the supported harness lines actually
+ * resolve, read from the probe trees `.audit/compat-matrix.ps1` builds.
+ */
+const RESOLVED: Record<string, readonly string[]> = {
+  '@deepseek-ai/cordis': ['4.0.2', '4.0.4', '4.0.5-alpha.1'],
+  '@deepseek-ai/schemastery': ['3.18.2', '3.18.4', '3.18.5-alpha.1'],
+}
+
+/**
+ * Satisfies, for the only range shapes this manifest uses: an exact version or a
+ * caret range, joined by `||`. The one subtlety it keeps is the rule that costs
+ * this plugin a release: a prerelease version satisfies a comparator only when
+ * that comparator carries a prerelease of the same `[major, minor, patch]`.
+ */
+function satisfies(version: string, range: string): boolean {
+  const parts = (input: string) => {
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/.exec(input.trim())
+    if (!match) throw new Error(`unsupported version or range in manifest: "${input}"`)
+    return { major: +match[1]!, minor: +match[2]!, patch: +match[3]!, pre: match[4] }
+  }
+  const target = parts(version)
+  return range.split('||').some((raw) => {
+    const spec = raw.trim()
+    if (!spec.startsWith('^')) return spec === version
+    const base = parts(spec.slice(1))
+    if (target.major !== base.major) return false
+    const delta = target.minor - base.minor || target.patch - base.patch
+    if (target.pre) return base.pre !== undefined && delta === 0
+    return delta >= 0
+  })
+}
 
 interface StandardSchema {
   '~standard': {
@@ -36,11 +72,12 @@ function validate(value: unknown) {
   return (Config as unknown as StandardSchema)['~standard'].validate(value)
 }
 
-function peerRange(packageName: string): string {
+function range(packageName: string): string {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
     peerDependencies: Record<string, string>
+    dependencies: Record<string, string>
   }
-  return manifest.peerDependencies[packageName] ?? ''
+  return manifest.peerDependencies[packageName] ?? manifest.dependencies[packageName] ?? ''
 }
 
 describe('cross-version compatibility surface', () => {
@@ -81,9 +118,32 @@ describe('cross-version compatibility surface', () => {
   it.each(PACKAGES)('%s peer range lists every supported version explicitly', (packageName) => {
     // Prereleases cannot be expressed as a caret range, so the list is explicit,
     // and both READMEs quote the same string.
-    expect(peerRange(packageName)).toBe(SUPPORTED)
+    expect(range(packageName)).toBe(SUPPORTED)
     for (const readme of ['README.md', 'README.zh-CN.md']) {
       expect(readFileSync(new URL(`../${readme}`, import.meta.url), 'utf8'), readme).toContain(SUPPORTED)
     }
+  })
+
+  it.each(Object.entries(RESOLVED))('%s range admits every version a supported harness resolves', (packageName, versions) => {
+    // The harness lines resolve different cordis and schemastery versions, and two
+    // of them are prereleases: 0.2.1-alpha.1 runs cordis 4.0.5-alpha.1 and
+    // schemastery 3.18.5-alpha.1, which a plain `^4.0.2` / `^3.18.2` rejects. On
+    // schemastery, a real dependency, that rejection was measured to install a
+    // second copy under the plugin beside the harness's; on the cordis peer pnpm
+    // resolves the harness's copy anyway, but the declaration still has to be true.
+    const spec = range(packageName)
+    for (const version of versions) {
+      expect(satisfies(version, spec), `${packageName}@${version} not admitted by "${spec}"`).toBe(true)
+    }
+  })
+
+  it('rejects a prerelease whose own comparator carries none, which is what the ranges above avoid', () => {
+    // The rule the supported lists exist to work around, asserted on the helper so
+    // it cannot rot into something that always returns true.
+    expect(satisfies('4.0.5-alpha.1', '^4.0.2')).toBe(false)
+    expect(satisfies('4.0.5-alpha.1', '^4.0.5-alpha.1')).toBe(true)
+    expect(satisfies('4.0.4', '^4.0.2 || ^4.0.5-alpha.1')).toBe(true)
+    expect(satisfies('4.1.0', '^4.0.2')).toBe(true)
+    expect(satisfies('5.0.0', '^4.0.2')).toBe(false)
   })
 })
