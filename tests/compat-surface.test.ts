@@ -25,17 +25,27 @@ const SUPPORTED = [
   '0.2.0-rc.1',
   '0.2.0-rc.2',
   '0.2.1-alpha.1',
+  '0.2.1-alpha.2',
+  '0.2.1-alpha.3',
+  '0.2.1-alpha.4',
+  '0.2.1-alpha.5',
+  '0.2.1-rc.1',
+  '0.2.1-rc.2',
 ].join(' || ')
 
 const PACKAGES = ['@deepseek-ai/dsh-agent', '@deepseek-ai/dsh-system-prompt', '@deepseek-ai/dsh-tools']
 
 /**
- * The cordis and schemastery versions the supported harness lines actually
- * resolve, read from the probe trees `.audit/compat-matrix.ps1` builds.
+ * The cordis and schemastery versions the supported harness lines run: what each
+ * one pins at release, plus the stable pair a fresh install resolves to today.
+ * Within `0.2.1` the pair moves three times — `alpha.1` / `alpha.2` name the
+ * first prereleases, `alpha.3` and later the second ones, the `rc` line the
+ * stable releases — and the plugin's two ranges have to admit all five, because
+ * a bundle takes whichever of them the install happens to pick.
  */
 const RESOLVED: Record<string, readonly string[]> = {
-  '@deepseek-ai/cordis': ['4.0.2', '4.0.4', '4.0.5-alpha.1'],
-  '@deepseek-ai/schemastery': ['3.18.2', '3.18.4', '3.18.5-alpha.1'],
+  '@deepseek-ai/cordis': ['4.0.2', '4.0.4', '4.0.5-alpha.1', '4.0.5-alpha.2', '4.0.5'],
+  '@deepseek-ai/schemastery': ['3.18.2', '3.18.4', '3.18.5-alpha.1', '3.18.5-alpha.2', '3.18.5'],
 }
 
 /**
@@ -125,9 +135,12 @@ describe('cross-version compatibility surface', () => {
   })
 
   it.each(Object.entries(RESOLVED))('%s range admits every version a supported harness resolves', (packageName, versions) => {
-    // The harness lines resolve different cordis and schemastery versions, and two
-    // of them are prereleases: 0.2.1-alpha.1 runs cordis 4.0.5-alpha.1 and
-    // schemastery 3.18.5-alpha.1, which a plain `^4.0.2` / `^3.18.2` rejects. On
+    // The harness lines resolve different cordis and schemastery versions, and
+    // four of them are prereleases: the `0.2.1` line runs cordis
+    // `4.0.5-alpha.1` (`alpha.1`-`alpha.2`), `4.0.5-alpha.2` (`alpha.3` onward)
+    // and `4.0.5` (`rc.1` onward), with schemastery `3.18.5-alpha.1`,
+    // `3.18.5-alpha.2` and `3.18.5` beside them, and a plain `^4.0.2` /
+    // `^3.18.2` rejects the prereleases. On
     // schemastery, a real dependency, that rejection was measured to install a
     // second copy under the plugin beside the harness's; on the cordis peer pnpm
     // resolves the harness's copy anyway, but the declaration still has to be true.

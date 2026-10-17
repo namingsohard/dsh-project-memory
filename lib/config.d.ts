@@ -28,20 +28,20 @@ export declare const DEFAULT_CONFIG: Config;
  * is a compile error — that is what keeps this hand-maintained pair from
  * drifting.
  */
-export declare const Config: Schema<Schemastery.ObjectS<{
-    maxMemoryBytes: Schema<number, number>;
-    lockTimeoutMs: Schema<number, number>;
-    staleLockMs: Schema<number, number>;
-    requireApproval: Schema<boolean, boolean>;
-    approvalGrowthBytes: Schema<number, number>;
-    approvalWatermarkPercent: Schema<number, number>;
-}>, Schemastery.ObjectT<{
-    maxMemoryBytes: Schema<number, number>;
-    lockTimeoutMs: Schema<number, number>;
-    staleLockMs: Schema<number, number>;
-    requireApproval: Schema<boolean, boolean>;
-    approvalGrowthBytes: Schema<number, number>;
-    approvalWatermarkPercent: Schema<number, number>;
-}>>;
+export declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
+    maxMemoryBytes: Schema<number, number, "defined">;
+    lockTimeoutMs: Schema<number, number, "defined">;
+    staleLockMs: Schema<number, number, "defined">;
+    requireApproval: Schema<boolean, boolean, "defined">;
+    approvalGrowthBytes: Schema<number, number, "defined">;
+    approvalWatermarkPercent: Schema<number, number, "defined">;
+}>>, Schemastery.ObjectT<NoInfer<{
+    maxMemoryBytes: Schema<number, number, "defined">;
+    lockTimeoutMs: Schema<number, number, "defined">;
+    staleLockMs: Schema<number, number, "defined">;
+    requireApproval: Schema<boolean, boolean, "defined">;
+    approvalGrowthBytes: Schema<number, number, "defined">;
+    approvalWatermarkPercent: Schema<number, number, "defined">;
+}>>, "plain">;
 export declare function resolveConfig(config: Partial<Config> | undefined): Config;
 //# sourceMappingURL=config.d.ts.map
