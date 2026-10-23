@@ -36,7 +36,7 @@ project_memory_write            磁盘上变成 revision N+1；本会话快照�
 
 ## 环境要求
 
-- DeepSeek Harness `0.1.5-rc.1` 至 `0.2.1-rc.2` —— 该区间内每个已发布版本都通过类型检查，并在真实的工具注册表与 prompt 渲染器上启动过；区间两端还额外跑通了完整测试套件
+- DeepSeek Harness `>=0.1.5-rc.1 <0.3`（以 `engines.dsh` 声明）—— 从 `0.1.5-rc.1` 到 `0.2.1-rc.2` 的每个已发布版本都通过类型检查，并在真实的工具注册表与 prompt 渲染器上启动过；区间两端还额外跑通了完整测试套件。受支持列车后续的预发布版本由该 range 直接放行，无需更新插件
 - Node.js 22 或更高
 
 ## 安装
@@ -238,13 +238,17 @@ Project Memory 是可信的项目认知基线，但**不能**覆盖更高优先�
 - `0.1.7` 与 `0.2` 新增的是插件用不到的表面，而非插件依赖的表面：`ask` 决策上的 `displayReason`、工具定义上的 `projectContent` 与 `deferLoading`，可选的 `@deepseek-ai/dsh-workspace` peer，以及 `dsh-session` 新导出的 `ToolCallRecovery`。从 `0.1.7-rc.2` 到 `0.2.1-alpha.1`，插件用到的那四个包的声明只差在注释；`system-prompt/assemble` 与 `tools/pre-execute` 的契约、`defineTool`、`Agent.session` 上的字段（包括 `header.cwd` 如何校验、fork 时如何继承）都没有变化，所以一份构建服务全部版本。
 - `0.2.1-rc.1` 延续这一点：`dsh-tools` 多出 `PtcCalls` 模块、嵌套派发事件负载上的 `meta` 字段，以及 `createRunCodeTool` 多出的 `ctx` 参数；`dsh-system-prompt` 多出 `SystemPrompt.refreshContext`、`PromptContext` 上的 `required` 标志和四个 `CONTEXT_ORDERS` 条目；`dsh-session` 多出 `plugin:*` 的 session record API（`appendPluginRecord`、`pluginRecordOf`）。它们全部与本插件调用的表面并列存在。唯一的收窄是 `ToolPresentationMode` 去掉了 `'both'`，而那是注册表自己 `presentAs()` 的状态，插件从不设置该字段。`ptc` 表现模式下的嵌套调用走的仍是同一个 scheduler，所以 `tools/pre-execute` 照旧执行，由生成代码发起的 `project_memory_write` 也照旧受审批门禁管辖。
 
-`peerDependencies` 逐个列出支持版本，而不是用 caret range：
+兼容性用一个批量 range 声明，而不是逐个枚举：
 
 ```
-0.1.5-rc.1 || 0.1.5-rc.2 || 0.1.5-rc.3 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2 || 0.2.0-rc.1 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2 || 0.2.1-alpha.3 || 0.2.1-alpha.4 || 0.2.1-alpha.5 || 0.2.1-rc.1 || 0.2.1-rc.2
+>=0.1.5-rc.1 <0.3
 ```
 
-npm/pnpm 的 semver 不允许预发布版本满足一个缺少同 `[major, minor, patch]` 预发布的 range，所以 `^0.1.5-rc.2` 会静默排除掉 `0.1.6-alpha.2` 以及之后的每个预发布版本。同一条规则也延伸到那两个交由 harness 解析、而非由插件命名的 range，它们各多出一项，是为了说出每个版本真正跑的是什么：`@deepseek-ai/schemastery` 写作 `^3.18.2 || ^3.18.5-alpha.1`，`@deepseek-ai/cordis` 写作 `^4.0.2 || ^4.0.5-alpha.1`。`0.2.1` 这条线在稳定下来之前把这两个依赖换了三次：`alpha.1` 与 `alpha.2` 跑 schemastery `3.18.5-alpha.1` / cordis `4.0.5-alpha.1`，`alpha.3` 到 `alpha.5` 跑 `3.18.5-alpha.2` / `4.0.5-alpha.2`，`rc.1` 起跑稳定的 `3.18.5` / `4.0.5`。前两级靠的是那个预发布分支，而稳定的一对本来就在 `^3.18.2` 与 `^4.0.2` 里——这正是新增 `rc` 这条线两个 range 都不用改的原因。schemastery 这一处差别是可测量的：只写 `^3.18.2` 时，针对 `0.2.1-alpha.1` 的安装会在 `dsh-project-memory/node_modules/` 下装出第二份 schemastery，与 harness 那份并列——在此之前写死精确版本的 bundle 无一例外都是如此。cordis 那个 peer 两种写法下 pnpm 都会解析到 harness 那份，所以放宽它是为了如实声明：npm 的 peer 解析并不容忍窄的那一个。而两份副本之所以仍然能用，只因为 `src/` 里没有任何地方引用 schemastery 的类型。
+`engines.dsh` 是宿主自己的兼容字段：插件 manifest 一旦带上它，`dsh-app-boot` 的 `evaluatePluginCompatibility` 就只按这一个 range 判定（`peerDependencies` 整个被忽略），且判定用的是 `semver.satisfies(..., { includePrerelease: true })`——预发布版本与普通版本一样参与匹配，range 写的区间就是它真正的含义。三个 `@deepseek-ai/dsh-*` peer 镜像同一个字符串。下界是兼容性矩阵验证过的最老一条线；上界把承诺约束在验证过的列车之内——抬上界是"跑一遍矩阵、再抬一次"的每列车一次的主动步骤，而不是对 `0.3` 的臆断。受支持列车后续的任何预发布——`0.2.1-rc.3`、`0.2.2-alpha.1` 及其后继——发布当天即被放行，无需更新插件。
+
+安装器按默认 semver 读 range：预发布版本不能满足一个缺少同 `[major, minor, patch]` 预发布的 range——正是这条规则让逐版本枚举显得必不可少。但它只影响安装日志：harness 通过 pnpm 安装，当运行中的 harness 本身是预发布版本时，pnpm 会把这些镜像 peer 记为 unmet，且是静默的——在 `0.2.1` 上实测：安装不失败，也不会装出第二份副本。兼容性只在上面那个宿主门禁处决定。若绕开 harness、直接用 npm 把本包装进带预发布版本的依赖树，npm 更严格的 peer 解析仍可能报错；请通过 harness 安装。
+
+那两个交由 harness 解析、而非由插件命名的 range，仍按安装器那条规则被判定，所以各多出一项预发布分支，是为了说出每个版本真正跑的是什么：`@deepseek-ai/schemastery` 写作 `^3.18.2 || ^3.18.5-alpha.1`，`@deepseek-ai/cordis` 写作 `^4.0.2 || ^4.0.5-alpha.1`。`0.2.1` 这条线在稳定下来之前把这两个依赖换了三次：`alpha.1` 与 `alpha.2` 跑 schemastery `3.18.5-alpha.1` / cordis `4.0.5-alpha.1`，`alpha.3` 到 `alpha.5` 跑 `3.18.5-alpha.2` / `4.0.5-alpha.2`，`rc.1` 起跑稳定的 `3.18.5` / `4.0.5`。前两级靠的是那个预发布分支，而稳定的一对本来就在 `^3.18.2` 与 `^4.0.2` 里——这正是新增 `rc` 这条线两个 range 都不用改的原因。schemastery 这一处差别是可测量的：只写 `^3.18.2` 时，针对 `0.2.1-alpha.1` 的安装会在 `dsh-project-memory/node_modules/` 下装出第二份 schemastery，与 harness 那份并列——在此之前写死精确版本的 bundle 无一例外都是如此。cordis 那个 peer 两种写法下 pnpm 都会解析到 harness 那份，所以放宽它是为了如实声明：npm 的 peer 解析并不容忍窄的那一个。而两份副本之所以仍然能用，只因为 `src/` 里没有任何地方引用 schemastery 的类型。
 
 ## 与其他 DSH 记忆插件的关系
 
